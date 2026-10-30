@@ -1,8 +1,0 @@
----
-"@relaybird/android": minor
-"@relaybird/macos": minor
----
-
-Build, version and release both apps from CI. One version covers the pair, since the protocol
-gates them against each other, and a tag produces a signed APK alongside a signed, notarised
-Mac app in a single GitHub release.
