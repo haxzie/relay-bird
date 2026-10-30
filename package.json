@@ -17,6 +17,13 @@
     "dev:android": "pnpm --filter @relaybird/android run install-device",
     "dev:macos": "pnpm --filter @relaybird/macos run start",
     "device-test": "pnpm --filter @relaybird/android run device-test",
-    "logs": "pnpm --filter @relaybird/android run logs"
+    "logs": "pnpm --filter @relaybird/android run logs",
+    "changeset": "changeset",
+    "version-packages": "changeset version && node scripts/sync-versions.mjs && pnpm install --lockfile-only",
+    "sync-versions": "node scripts/sync-versions.mjs",
+    "tag-release": "changeset tag"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.10"
   }
 }

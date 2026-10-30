@@ -13,7 +13,21 @@ val keystoreProperties = Properties().apply {
     val f = rootProject.file("keystore.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
-val hasReleaseKeystore = keystoreProperties.getProperty("storeFile") != null
+
+// CI has no properties file — it decodes the keystore from a secret and passes the rest as
+// environment variables. Either source works; neither being present falls back to the debug
+// key, which keeps a fresh clone and a fork buildable.
+fun signingValue(property: String, environment: String): String? =
+    keystoreProperties.getProperty(property) ?: System.getenv(environment)
+
+val releaseStoreFile = signingValue("storeFile", "ANDROID_KEYSTORE_FILE")
+val hasReleaseKeystore = releaseStoreFile != null && rootProject.file(releaseStoreFile).exists()
+
+// Written by scripts/sync-versions.mjs from the version changesets maintains.
+val appVersion = Properties().apply {
+    val f = rootProject.file("version.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
 
 android {
     namespace = "dev.haxzie.relaybird"
@@ -23,18 +37,18 @@ android {
         applicationId = "dev.haxzie.relaybird"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersion.getProperty("versionCode")?.toInt() ?: 1
+        versionName = appVersion.getProperty("versionName") ?: "0.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
         if (hasReleaseKeystore) {
             create("release") {
-                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
-                storePassword = keystoreProperties.getProperty("storePassword")
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = rootProject.file(releaseStoreFile!!)
+                storePassword = signingValue("storePassword", "ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "ANDROID_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "ANDROID_KEY_PASSWORD")
             }
         }
     }

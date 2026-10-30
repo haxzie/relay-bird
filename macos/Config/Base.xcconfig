@@ -1,3 +1,6 @@
+// Written by scripts/sync-versions.mjs; committed so a clone builds without running it.
+#include "Version.xcconfig"
+
 // Committed defaults. Ad-hoc signing keeps a fresh clone buildable and runnable locally
 // without any Apple account.
 CODE_SIGN_STYLE = Manual

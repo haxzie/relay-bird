@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # A newer push makes an in-flight run of the same branch irrelevant.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Android
+    # The Android half needs no macOS tooling, and a Linux runner is both faster and cheaper.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests
+        working-directory: android
+        run: ./gradlew :app:testDebugUnitTest
+
+      - name: Build
+        working-directory: android
+        run: ./gradlew :app:assembleDebug
+
+      # Worth keeping even on a green run: this is the build someone grabs to try a branch on
+      # a phone without building it themselves.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relaybird-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-report
+          path: android/app/build/reports/tests/
+
+  macos:
+    name: macOS
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      # Generates the project from project.yml, so a file added without regenerating locally
+      # still gets compiled and tested here rather than being quietly left out.
+      - name: Test
+        working-directory: macos
+        run: |
+          xcodegen generate
+          xcodebuild -project RelayBird.xcodeproj -scheme RelayBird -configuration Debug test
+
+  protocol:
+    name: Protocol vectors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The handshake vectors are asserted by both test suites, and the two suites run on
+      # different machines above. This checks the document they are both copied from still
+      # carries the same numbers, so a change to one side cannot quietly rewrite the contract.
+      - name: Vectors in the doc match both implementations
+        run: |
+          set -euo pipefail
+          for proof in \
+            "pair    proof:5beecd9d109a6b7fed62a2704689789b3b6f52f4b78fe3bf362450c6c9bdcfc3" \
+            "confirm proof:688b0e4cbbd809ad9cc27d1b76c628622e3f825130c4ce3d6b9fce3f383f6de2" \
+            "auth    proof:490195dbe69816d467535d13a730bd765eee83aeea6caaff2a4a7b1c4c708f51"
+          do
+            name="${proof%%:*}"
+            hex="${proof##*:}"
+            grep -q "$hex" docs/PROTOCOL.md \
+              || { echo "::error::$name in docs/PROTOCOL.md no longer matches the committed vector"; exit 1; }
+            grep -rq "$hex" android/app/src/test macos/RelayBirdTests \
+              || { echo "::error::$name is not asserted by both test suites"; exit 1; }
+          done
+          echo "protocol vectors agree across the doc and both suites"

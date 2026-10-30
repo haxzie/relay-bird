@@ -24,3 +24,6 @@ DerivedData/
 
 # Build output
 dist/
+
+# CI decodes the release keystore here; it must never be committed.
+android/release.jks
