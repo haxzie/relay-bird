@@ -1,0 +1,9 @@
+// Committed defaults. Ad-hoc signing keeps a fresh clone buildable and runnable locally
+// without any Apple account.
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = -
+DEVELOPMENT_TEAM =
+
+// Real signing lives in a gitignored file so no identity details end up in git.
+// Copy Signing.local.xcconfig.example to Signing.local.xcconfig and fill it in.
+#include? "Signing.local.xcconfig"
