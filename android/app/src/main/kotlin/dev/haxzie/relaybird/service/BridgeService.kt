@@ -43,9 +43,11 @@ class BridgeService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            container.mirroringWanted = false
             stopSelf()
             return START_NOT_STICKY
         }
+        container.mirroringWanted = true
         startForegroundNotification("Starting…")
 
         if (container.running.value) return START_STICKY

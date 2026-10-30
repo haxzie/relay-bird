@@ -35,6 +35,23 @@ class BridgeContainer(private val context: Context) {
     /** True while [BridgeService] is running, so the UI can show the real state. */
     val running = MutableStateFlow(false)
 
+    private val prefs = context.getSharedPreferences("relaybird_state", Context.MODE_PRIVATE)
+
+    /**
+     * Whether the user wants mirroring on, as distinct from whether it is on right now.
+     *
+     * Installing an APK force-stops the app, and Android does not restart the services of a
+     * force-stopped app, so without remembering this an update would quietly leave mirroring
+     * off until someone noticed and toggled it again.
+     */
+    var mirroringWanted: Boolean
+        get() = prefs.getBoolean(KEY_MIRRORING_WANTED, false)
+        set(value) = prefs.edit().putBoolean(KEY_MIRRORING_WANTED, value).apply()
+
+    private companion object {
+        const val KEY_MIRRORING_WANTED = "mirroring_wanted"
+    }
+
     /** Last error surfaced by the service, shown on the home screen. */
     val lastError = MutableStateFlow<String?>(null)
 }
