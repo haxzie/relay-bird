@@ -206,7 +206,14 @@ class BridgeServer(
         private fun handle(frame: Frame) {
             try {
                 when (frame) {
-                    is Sync -> send(Threads(sms.threads(frame.limit)))
+                    is Sync -> send(
+                        Threads(
+                            sms.threads(
+                                limit = frame.limit,
+                                watermarks = frame.watermarks.associate { it.threadId to it.lastReadId },
+                            ),
+                        ),
+                    )
                     is ThreadRequest -> send(
                         Messages(frame.threadId, sms.messages(frame.threadId, frame.limit, frame.beforeId)),
                     )

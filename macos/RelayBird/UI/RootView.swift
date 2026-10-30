@@ -42,7 +42,10 @@ struct RootView: View {
                 ThreadDetailView(
                     client: client,
                     threadId: threadId,
-                    onBack: { route = .threads }
+                    onBack: {
+                        client.closeThread()
+                        route = .threads
+                    }
                 )
             case .settings:
                 SettingsView(client: client, onBack: { route = .threads })
@@ -53,7 +56,6 @@ struct RootView: View {
     private func open(_ threadId: Int64) {
         route = .thread(threadId)
         client.openThread(threadId)
-        client.markRead(threadId)
     }
 }
 

@@ -27,6 +27,10 @@ final class BridgeClient: ObservableObject {
 
     var onIncomingMessage: ((WireMessage, WireThread?) -> Void)?
 
+    private let store: MessageStore
+    /// The thread the popover is showing, so its read mark keeps up with arriving messages.
+    private var openThreadId: Int64?
+
     private let discovery = Discovery()
     private var discovered: [DiscoveredPhone] = []
     private var attempts: [BridgeConnection] = []
@@ -39,12 +43,11 @@ final class BridgeClient: ObservableObject {
     /// Suppresses notification banners for the initial backlog of a fresh sync.
     private var initialSyncDone = false
 
-    init() {
-        let cached = MessageCache.load()
-        threads = cached.threads
-        messagesByThread = cached.messagesByThread
-        lastSyncedAt = cached.syncedAt
-        phoneName = cached.phoneName
+    init(store: MessageStore = .default) {
+        self.store = store
+        threads = store.threads()
+        lastSyncedAt = store.syncedAt
+        phoneName = store.phoneName
         phone = Keychain.load()
     }
 
@@ -107,7 +110,7 @@ final class BridgeClient: ObservableObject {
 
     func unpair() {
         Keychain.clear()
-        MessageCache.clear()
+        store.clear()
         phone = nil
         threads = []
         messagesByThread = [:]
@@ -119,24 +122,24 @@ final class BridgeClient: ObservableObject {
     // MARK: - Requests
 
     func openThread(_ threadId: Int64) {
+        openThreadId = threadId
+        messagesByThread[threadId] = store.messages(threadId: threadId)
         active?.send(.thread(threadId: threadId, limit: 100, beforeId: nil))
+        markRead(threadId)
     }
 
+    func closeThread() {
+        openThreadId = nil
+    }
+
+    /// Read state is the Mac's own: the phone cannot record it, so it is written here and
+    /// replayed to the phone as a watermark on every sync.
     func markRead(_ threadId: Int64) {
-        active?.send(.markRead(threadId: threadId))
-        guard let index = threads.firstIndex(where: { $0.threadId == threadId }), threads[index].unread > 0 else {
-            return
-        }
-        let thread = threads[index]
-        threads[index] = WireThread(
-            threadId: thread.threadId,
-            address: thread.address,
-            displayName: thread.displayName,
-            snippet: thread.snippet,
-            date: thread.date,
-            unread: 0
-        )
-        persist()
+        let upTo = store.latestMessageId(threadId: threadId)
+        guard upTo > 0 else { return }
+        store.markRead(threadId: threadId, upTo: upTo)
+        refreshThreads()
+        active?.send(.markRead(threadId: threadId, upToId: upTo))
     }
 
     func reconnectNow() {
@@ -145,7 +148,7 @@ final class BridgeClient: ObservableObject {
         connectIfPossible()
     }
 
-    var unreadCount: Int { threads.reduce(0) { $0 + $1.unread } }
+    var unreadCount: Int { store.totalUnread() }
 
     // MARK: - Connecting
 
@@ -304,14 +307,19 @@ final class BridgeClient: ObservableObject {
             promote(connection)
 
         case .threads(let incoming):
-            threads = incoming
-            lastSyncedAt = Date()
+            store.upsertThreads(incoming)
+            let now = Date()
+            store.syncedAt = now
+            store.phoneName = phoneName
+            lastSyncedAt = now
             initialSyncDone = true
-            persist()
+            refreshThreads()
 
         case .messages(let threadId, let messages):
-            messagesByThread[threadId] = messages
-            persist()
+            store.upsertMessages(messages)
+            messagesByThread[threadId] = store.messages(threadId: threadId)
+            // Arriving for the thread on screen: the read mark moves with it.
+            if openThreadId == threadId { markRead(threadId) }
 
         case .message(let message):
             apply(message)
@@ -347,7 +355,7 @@ final class BridgeClient: ObservableObject {
         reconnectDelay = 1
         state = .connected
         initialSyncDone = false
-        connection.send(.sync(limit: 50))
+        connection.send(.sync(limit: 50, watermarks: store.watermarks()))
         resetWatchdog()
     }
 
@@ -371,30 +379,26 @@ final class BridgeClient: ObservableObject {
     }
 
     private func apply(_ message: WireMessage) {
-        var thread = threads.first { $0.threadId == message.threadId }
-        let updated = WireThread(
-            threadId: message.threadId,
-            address: thread?.address ?? message.address,
-            displayName: thread?.displayName,
-            snippet: String(message.body.prefix(140)),
-            date: message.date,
-            unread: (thread?.unread ?? 0) + (message.outgoing || message.read ? 0 : 1)
-        )
-        threads.removeAll { $0.threadId == message.threadId }
-        threads.insert(updated, at: 0)
-        thread = updated
+        let displayName = threads.first { $0.threadId == message.threadId }?.displayName
+        store.applyIncoming(message, displayName: displayName)
+        refreshThreads()
 
-        var existing = messagesByThread[message.threadId] ?? []
-        if !existing.contains(where: { $0.id == message.id }) {
-            existing.append(message)
-            messagesByThread[message.threadId] = existing
+        if messagesByThread[message.threadId] != nil || openThreadId == message.threadId {
+            messagesByThread[message.threadId] = store.messages(threadId: message.threadId)
         }
+        // Already on screen, so it is read as soon as it lands.
+        if openThreadId == message.threadId { markRead(message.threadId) }
+
         lastSyncedAt = Date()
-        persist()
+        store.syncedAt = lastSyncedAt
 
-        if !message.outgoing && initialSyncDone {
-            onIncomingMessage?(message, updated)
+        if !message.outgoing && initialSyncDone && openThreadId != message.threadId {
+            onIncomingMessage?(message, threads.first { $0.threadId == message.threadId })
         }
+    }
+
+    private func refreshThreads() {
+        threads = store.threads()
     }
 
     private func cacheEndpoint(_ endpoint: NWEndpoint) {
@@ -407,17 +411,6 @@ final class BridgeClient: ObservableObject {
         @unknown default: return
         }
         AppSettings.cachedEndpoint = (text, port.rawValue)
-    }
-
-    private func persist() {
-        MessageCache.save(
-            CachedState(
-                threads: threads,
-                messagesByThread: messagesByThread,
-                syncedAt: lastSyncedAt,
-                phoneName: phoneName
-            )
-        )
     }
 
     private func scheduleReconnect() {

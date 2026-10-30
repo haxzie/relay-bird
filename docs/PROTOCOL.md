@@ -1,4 +1,4 @@
-# RelayBird wire protocol — v1
+# RelayBird wire protocol — v2
 
 Single source of truth for both apps. Any change here needs a matching change in
 `android/app/src/main/kotlin/dev/haxzie/relaybird/net/` and `macos/RelayBird/Net/`.
@@ -49,17 +49,41 @@ Every frame is a JSON object with a `t` (type) discriminator.
 | phone→mac  | `paired`   | `confirm` (b64 HMAC), `deviceKey` (b64, 32B)                                  |
 | mac→phone  | `auth`     | `proof` (b64 HMAC)                                                            |
 | phone→mac  | `ready`    | —                                                                             |
-| mac→phone  | `sync`     | `limit` (threads to return)                                                   |
-| phone→mac  | `threads`  | `threads`: `[{threadId, address, displayName?, snippet, date, unread}]`       |
+| mac→phone  | `sync`     | `limit` (threads to return), `watermarks`: `[{threadId, lastReadId}]`         |
+| phone→mac  | `threads`  | `threads`: `[{threadId, address, displayName?, snippet, date, unread, latestMessageId}]` |
 | mac→phone  | `thread`   | `threadId`, `limit`, `beforeId?`                                              |
 | phone→mac  | `messages` | `threadId`, `messages`: `[{id, threadId, address, body, date, outgoing, read}]` |
 | phone→mac  | `message`  | `message`: a single message object, pushed live                               |
-| mac→phone  | `markRead` | `threadId`                                                                    |
+| mac→phone  | `markRead` | `threadId`, `upToId`                                                          |
 | both       | `ping`     | —                                                                             |
 | both       | `pong`     | —                                                                             |
 | phone→mac  | `error`    | `code`, `msg`                                                                 |
 
 `date` is epoch milliseconds. `outgoing` is true for `Telephony.Sms.MESSAGE_TYPE_SENT`.
+
+Decoders must tolerate a missing field and fall back to a zero value rather than rejecting the
+frame, so that adding one does not become a flag day.
+
+## Read state
+
+**The Mac owns it.** A non-default SMS app cannot write to the SMS provider: the phone's
+`markRead` handler issues the update, Android drops it without an error, and the next `sync`
+would report the same conversations as unread again — forever.
+
+So the Mac records, per thread, the id of the newest message it has shown (`lastReadId`), keeps
+it in its own database, and sends the set of them with every `sync`. The phone subtracts them
+when counting:
+
+    unread(thread) = count(messages where type = inbox and read = 0 and _id > lastReadId)
+
+A thread therefore stays read once read, and goes unread again only when a message newer than
+the mark arrives. `markRead` is still sent so the phone can attempt the provider write for the
+benefit of its own Messages app; nothing depends on it succeeding. Read marks never move
+backwards.
+
+`latestMessageId` lets the Mac reach the same conclusion on its own — it displays zero unread
+whenever its mark has caught up — so a sync that predates the watermarks cannot resurrect a
+badge either.
 
 Heartbeat: each side sends `ping` every 20s of idleness and closes the connection if no frame
 of any kind arrives for 60s.

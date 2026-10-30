@@ -4,7 +4,7 @@ import XCTest
 final class PairingCodeTests: XCTestCase {
     func testUrlIsParseableByThePhone() throws {
         let code = PairingCode.generate(macName: "Haxzie's MacBook Pro")
-        XCTAssertTrue(code.url.hasPrefix("relaybird://pair?v=1&name="))
+        XCTAssertTrue(code.url.hasPrefix("relaybird://pair?v=\(Protocol.version)&name="))
 
         let components = try XCTUnwrap(URLComponents(string: code.url))
         let items = try XCTUnwrap(components.queryItems)

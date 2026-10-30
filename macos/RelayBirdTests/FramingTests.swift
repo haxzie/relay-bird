@@ -3,12 +3,12 @@ import XCTest
 
 final class FramingTests: XCTestCase {
     func testRoundTripsAFrame() throws {
-        let data = try FrameBuffer.encode(.sync(limit: 7))
+        let data = try FrameBuffer.encode(.sync(limit: 7, watermarks: []))
         var buffer = FrameBuffer()
         buffer.append(data)
         let frames = try buffer.drain()
         XCTAssertEqual(frames.count, 1)
-        guard case .sync(let limit) = frames[0] else { return XCTFail("wrong frame") }
+        guard case .sync(let limit, _) = frames[0] else { return XCTFail("wrong frame") }
         XCTAssertEqual(limit, 7)
     }
 
@@ -21,8 +21,8 @@ final class FramingTests: XCTestCase {
     func testDrainsSeveralFramesFromOneStream() throws {
         var stream = Data()
         stream.append(try FrameBuffer.encode(.ping))
-        stream.append(try FrameBuffer.encode(.markRead(threadId: 42)))
-        stream.append(try FrameBuffer.encode(.sync(limit: 9)))
+        stream.append(try FrameBuffer.encode(.markRead(threadId: 42, upToId: 0)))
+        stream.append(try FrameBuffer.encode(.sync(limit: 9, watermarks: [])))
         var buffer = FrameBuffer()
         buffer.append(stream)
 
@@ -32,11 +32,11 @@ final class FramingTests: XCTestCase {
         let frames = try buffer.drain()
         XCTAssertEqual(frames.count, 3)
         guard case .ping = frames[0] else { return XCTFail("frame 0 should be ping") }
-        guard case .markRead(let threadId) = frames[1] else {
+        guard case .markRead(let threadId, _) = frames[1] else {
             return XCTFail("frame 1 should be markRead")
         }
         XCTAssertEqual(threadId, 42)
-        guard case .sync(let limit) = frames[2] else { return XCTFail("frame 2 should be sync") }
+        guard case .sync(let limit, _) = frames[2] else { return XCTFail("frame 2 should be sync") }
         XCTAssertEqual(limit, 9)
     }
 
@@ -44,10 +44,10 @@ final class FramingTests: XCTestCase {
         // What the socket actually does: append, drain, append, drain, on one long-lived buffer.
         var buffer = FrameBuffer()
         for threadId in Int64(1) ... Int64(20) {
-            buffer.append(try FrameBuffer.encode(.markRead(threadId: threadId)))
+            buffer.append(try FrameBuffer.encode(.markRead(threadId: threadId, upToId: threadId * 10)))
             let frames = try buffer.drain()
             XCTAssertEqual(frames.count, 1)
-            guard case .markRead(let decoded) = frames[0] else {
+            guard case .markRead(let decoded, _) = frames[0] else {
                 return XCTFail("expected markRead")
             }
             XCTAssertEqual(decoded, threadId, "frame \(threadId) decoded from the wrong offset")
@@ -55,7 +55,7 @@ final class FramingTests: XCTestCase {
     }
 
     func testDrainsFramesArrivingByteByByte() throws {
-        let stream = try FrameBuffer.encode(.sync(limit: 3)) + FrameBuffer.encode(.ping)
+        let stream = try FrameBuffer.encode(.sync(limit: 3, watermarks: [])) + FrameBuffer.encode(.ping)
         var buffer = FrameBuffer()
         var frames: [Frame] = []
         for byte in stream {
@@ -63,7 +63,7 @@ final class FramingTests: XCTestCase {
             frames.append(contentsOf: try buffer.drain())
         }
         XCTAssertEqual(frames.count, 2)
-        guard case .sync(let limit) = frames[0] else { return XCTFail("expected sync") }
+        guard case .sync(let limit, _) = frames[0] else { return XCTFail("expected sync") }
         XCTAssertEqual(limit, 3)
         guard case .ping = frames[1] else { return XCTFail("expected ping") }
     }
@@ -129,6 +129,47 @@ final class FramingTests: XCTestCase {
             return XCTFail("error did not decode")
         }
         XCTAssertEqual(code, ErrorCode.unpaired)
+    }
+
+    func testRoundTripsWatermarksAndReadMarks() throws {
+        let marks = [
+            MessageStore.Watermark(threadId: 3, lastReadId: 900),
+            MessageStore.Watermark(threadId: 4, lastReadId: 12),
+        ]
+        var buffer = FrameBuffer()
+        buffer.append(try FrameBuffer.encode(.sync(limit: 50, watermarks: marks)))
+        buffer.append(try FrameBuffer.encode(.markRead(threadId: 3, upToId: 900)))
+        let frames = try buffer.drain()
+
+        guard case .sync(let limit, let decoded) = frames[0] else { return XCTFail("expected sync") }
+        XCTAssertEqual(limit, 50)
+        XCTAssertEqual(decoded, marks)
+
+        guard case .markRead(let threadId, let upToId) = frames[1] else {
+            return XCTFail("expected markRead")
+        }
+        XCTAssertEqual(threadId, 3)
+        XCTAssertEqual(upToId, 900)
+    }
+
+    func testDecodesLatestMessageIdOnAThread() throws {
+        let json = """
+        {"t":"threads","threads":[{"threadId":3,"address":"+1555","displayName":null,"snippet":"hi","date":1700000000000,"unread":2,"latestMessageId":981}]}
+        """
+        guard case .threads(let list) = try Frame.decode(from: Data(json.utf8)) else {
+            return XCTFail("threads did not decode")
+        }
+        XCTAssertEqual(list.first?.latestMessageId, 981)
+    }
+
+    func testAThreadWithoutLatestMessageIdStillDecodes() throws {
+        let json = """
+        {"t":"threads","threads":[{"threadId":3,"address":"+1555","snippet":"hi","date":1,"unread":0}]}
+        """
+        guard case .threads(let list) = try Frame.decode(from: Data(json.utf8)) else {
+            return XCTFail("threads did not decode")
+        }
+        XCTAssertEqual(list.first?.latestMessageId, 0)
     }
 
     func testRejectsAnUnknownFrameType() {

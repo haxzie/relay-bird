@@ -8,7 +8,7 @@ import kotlinx.serialization.json.Json
  * Wire protocol v1. Mirrored by hand in macos/RelayBird/Net/Protocol.swift — see
  * docs/PROTOCOL.md, which is the source of truth for both.
  */
-const val PROTOCOL_VERSION = 1
+const val PROTOCOL_VERSION = 2
 
 val protocolJson: Json = Json {
     classDiscriminator = "t"
@@ -34,8 +34,21 @@ data class WireThread(
     val displayName: String? = null,
     val snippet: String,
     val date: Long,
+    /** Already excludes anything the Mac told us it had read — see [Watermark]. */
     val unread: Int,
+    /** Newest message in the thread, so the Mac can tell when its read mark is current. */
+    val latestMessageId: Long = 0,
 )
+
+/**
+ * How far the Mac has read in a thread.
+ *
+ * The Mac has to track this itself: a non-default SMS app cannot write to the SMS provider, so
+ * marking a conversation read here does not stick, and every resync would otherwise report the
+ * same messages as unread forever.
+ */
+@Serializable
+data class Watermark(val threadId: Long, val lastReadId: Long)
 
 @Serializable
 sealed interface Frame
@@ -89,7 +102,10 @@ data class Auth(val proof: String) : Frame
 
 @Serializable
 @SerialName("sync")
-data class Sync(val limit: Int = 50) : Frame
+data class Sync(
+    val limit: Int = 50,
+    val watermarks: List<Watermark> = emptyList(),
+) : Frame
 
 @Serializable
 @SerialName("thread")
@@ -97,7 +113,7 @@ data class ThreadRequest(val threadId: Long, val limit: Int = 100, val beforeId:
 
 @Serializable
 @SerialName("markRead")
-data class MarkRead(val threadId: Long) : Frame
+data class MarkRead(val threadId: Long, val upToId: Long = 0) : Frame
 
 // ---- both ----
 

@@ -3,6 +3,7 @@ package dev.haxzie.relaybird.sms
 import android.content.Context
 import android.database.Cursor
 import android.provider.Telephony
+import android.util.Log
 import dev.haxzie.relaybird.net.WireMessage
 import dev.haxzie.relaybird.net.WireThread
 
@@ -19,7 +20,7 @@ import dev.haxzie.relaybird.net.WireThread
  */
 class SmsRepository(private val context: Context, private val contacts: ContactNames) {
 
-    fun threads(limit: Int = 50): List<WireThread> {
+    fun threads(limit: Int = 50, watermarks: Map<Long, Long> = emptyMap()): List<WireThread> {
         val seen = LinkedHashMap<Long, WireThread>()
         query(selection = null, args = null, limit = limit * MESSAGES_PER_THREAD_SCAN)?.use { cursor ->
             val cols = Columns(cursor)
@@ -34,10 +35,11 @@ class SmsRepository(private val context: Context, private val contacts: ContactN
                     snippet = cursor.getString(cols.body).orEmpty().take(SNIPPET_CHARS),
                     date = cursor.getLong(cols.date),
                     unread = 0,
+                    latestMessageId = cursor.getLong(cols.id),
                 )
             }
         }
-        val unread = unreadCounts()
+        val unread = unreadCounts(watermarks)
         return seen.values.map { it.copy(unread = unread[it.threadId] ?: 0) }
     }
 
@@ -75,6 +77,11 @@ class SmsRepository(private val context: Context, private val contacts: ContactN
             buildList { while (cursor.moveToNext()) add(cursor.toWireMessage(cols)) }
         }.orEmpty().reversed()
 
+    /**
+     * Best effort only. Writes to the SMS provider are reserved for the default SMS app, and a
+     * non-default app's update is dropped without an error, so the Mac keeps its own read
+     * marks and does not depend on this working. Logged so it is visible either way.
+     */
     fun markThreadRead(threadId: Long): Int = runCatching {
         context.contentResolver.update(
             Telephony.Sms.CONTENT_URI,
@@ -82,18 +89,25 @@ class SmsRepository(private val context: Context, private val contacts: ContactN
             "${Telephony.Sms.THREAD_ID} = ? AND ${Telephony.Sms.READ} = 0",
             arrayOf(threadId.toString()),
         )
+    }.onSuccess { rows ->
+        Log.i(TAG, "markThreadRead($threadId) updated $rows row(s) in the SMS provider")
+    }.onFailure {
+        Log.i(TAG, "markThreadRead($threadId) refused: ${it.message}")
     }.getOrDefault(0)
 
-    private fun unreadCounts(): Map<Long, Int> {
-        val counts = HashMap<Long, Int>()
-        query("${Telephony.Sms.READ} = 0", null, UNREAD_SCAN_LIMIT)?.use { cursor ->
+    private fun unreadCounts(watermarks: Map<Long, Long>): Map<Long, Int> {
+        val idsByThread = HashMap<Long, MutableList<Long>>()
+        // Inbox only: an outgoing row can carry read = 0 without meaning anything to the reader.
+        val selection = "${Telephony.Sms.READ} = 0 AND ${Telephony.Sms.TYPE} = ${Telephony.Sms.MESSAGE_TYPE_INBOX}"
+        query(selection, null, UNREAD_SCAN_LIMIT)?.use { cursor ->
             val threadIdCol = cursor.getColumnIndexOrThrow(Telephony.Sms.THREAD_ID)
+            val idCol = cursor.getColumnIndexOrThrow(Telephony.Sms._ID)
             while (cursor.moveToNext()) {
-                val id = cursor.getLong(threadIdCol)
-                counts[id] = (counts[id] ?: 0) + 1
+                idsByThread.getOrPut(cursor.getLong(threadIdCol)) { mutableListOf() }
+                    .add(cursor.getLong(idCol))
             }
         }
-        return counts
+        return Unread.countsByThread(idsByThread, watermarks)
     }
 
     private fun query(selection: String?, args: Array<String>?, limit: Int): Cursor? =
@@ -126,6 +140,7 @@ class SmsRepository(private val context: Context, private val contacts: ContactN
     }
 
     private companion object {
+        const val TAG = "SmsRepository"
         val PROJECTION = arrayOf(
             Telephony.Sms._ID,
             Telephony.Sms.THREAD_ID,

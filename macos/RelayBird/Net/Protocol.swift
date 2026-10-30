@@ -4,7 +4,7 @@ import Foundation
 /// android/app/src/main/kotlin/dev/haxzie/relaybird/net/Protocol.kt — see docs/PROTOCOL.md,
 /// which is the source of truth for both.
 enum Protocol {
-    static let version = 1
+    static let version = 2
     static let serviceType = "_relaybird._tcp"
     static let maxFrameBytes = 1 << 20
 }
@@ -28,11 +28,46 @@ struct WireThread: Codable, Identifiable, Equatable, Hashable {
     let displayName: String?
     let snippet: String
     let date: Int64
+    /// Already discounts anything this Mac told the phone it had read.
     let unread: Int
+    /// Newest message in the thread, so a read mark can be compared against it.
+    let latestMessageId: Int64
 
     var id: Int64 { threadId }
     var title: String { displayName ?? address }
     var timestamp: Date { Date(timeIntervalSince1970: Double(date) / 1000) }
+
+    init(
+        threadId: Int64,
+        address: String,
+        displayName: String?,
+        snippet: String,
+        date: Int64,
+        unread: Int,
+        latestMessageId: Int64 = 0
+    ) {
+        self.threadId = threadId
+        self.address = address
+        self.displayName = displayName
+        self.snippet = snippet
+        self.date = date
+        self.unread = unread
+        self.latestMessageId = latestMessageId
+    }
+
+    /// Written out by hand because Swift's synthesised decoder ignores property defaults: with
+    /// the synthesised one, a peer that omits any field — an older build, a field added later —
+    /// fails to decode the whole frame rather than the one value.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        threadId = try container.decode(Int64.self, forKey: .threadId)
+        address = try container.decodeIfPresent(String.self, forKey: .address) ?? ""
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
+        snippet = try container.decodeIfPresent(String.self, forKey: .snippet) ?? ""
+        date = try container.decodeIfPresent(Int64.self, forKey: .date) ?? 0
+        unread = try container.decodeIfPresent(Int.self, forKey: .unread) ?? 0
+        latestMessageId = try container.decodeIfPresent(Int64.self, forKey: .latestMessageId) ?? 0
+    }
 }
 
 /// Frames as they appear on the wire, discriminated by `t`.
@@ -49,9 +84,9 @@ enum Frame {
     // mac -> phone
     case pair(name: String, proof: Data)
     case auth(proof: Data)
-    case sync(limit: Int)
+    case sync(limit: Int, watermarks: [MessageStore.Watermark])
     case thread(threadId: Int64, limit: Int, beforeId: Int64?)
-    case markRead(threadId: Int64)
+    case markRead(threadId: Int64, upToId: Int64)
 
     // both
     case ping
@@ -152,7 +187,16 @@ extension Frame {
         case "auth":
             return .auth(proof: try base64("proof"))
         case "sync":
-            return .sync(limit: try int("limit"))
+            let marks = (object["watermarks"] as? [[String: Any]]) ?? []
+            return .sync(
+                limit: try int("limit"),
+                watermarks: marks.compactMap {
+                    guard let threadId = ($0["threadId"] as? NSNumber)?.int64Value,
+                          let lastReadId = ($0["lastReadId"] as? NSNumber)?.int64Value
+                    else { return nil }
+                    return MessageStore.Watermark(threadId: threadId, lastReadId: lastReadId)
+                }
+            )
         case "thread":
             return .thread(
                 threadId: try int64("threadId"),
@@ -160,7 +204,10 @@ extension Frame {
                 beforeId: (object["beforeId"] as? NSNumber)?.int64Value
             )
         case "markRead":
-            return .markRead(threadId: try int64("threadId"))
+            return .markRead(
+                threadId: try int64("threadId"),
+                upToId: (object["upToId"] as? NSNumber)?.int64Value ?? 0
+            )
 
         default:
             throw FrameCodingError.unknownType(type)
@@ -174,13 +221,18 @@ extension Frame {
             object = ["t": "pair", "name": name, "proof": proof.base64EncodedString()]
         case .auth(let proof):
             object = ["t": "auth", "proof": proof.base64EncodedString()]
-        case .sync(let limit):
-            object = ["t": "sync", "limit": limit]
+        case .sync(let limit, let watermarks):
+            object = [
+                "t": "sync",
+                "limit": limit,
+                // How far this Mac has read in each thread; the phone subtracts these.
+                "watermarks": watermarks.map { ["threadId": $0.threadId, "lastReadId": $0.lastReadId] },
+            ]
         case .thread(let threadId, let limit, let beforeId):
             object = ["t": "thread", "threadId": threadId, "limit": limit]
             if let beforeId { object["beforeId"] = beforeId }
-        case .markRead(let threadId):
-            object = ["t": "markRead", "threadId": threadId]
+        case .markRead(let threadId, let upToId):
+            object = ["t": "markRead", "threadId": threadId, "upToId": upToId]
         case .ping:
             object = ["t": "ping"]
         case .pong:
