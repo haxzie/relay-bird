@@ -1,6 +1,6 @@
 {
   "name": "@relaybird/android",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Android app: reads SMS and serves them over TLS on the LAN",
   "scripts": {

@@ -1,6 +1,6 @@
 {
   "name": "relaybird",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Mirror Android SMS to a macOS menu bar app over the local network",
   "packageManager": "pnpm@10.33.0",
