@@ -13,12 +13,15 @@ struct RootView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            content
-            Divider()
-            StatusBar(client: client, route: $route)
-        }
-        .frame(width: 360, height: 460)
+        content
+            // Bottom safe area rather than a VStack row: the list, the conversation and the
+            // settings all scroll under it, and the inset propagates into them so nothing ends
+            // up stranded behind the bar.
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                StatusBar(client: client, route: $route)
+                    .background(ProgressiveBlur(anchor: .bottom))
+            }
+            .frame(width: 360, height: 460)
         .onChange(of: pendingThreadId) { _, threadId in
             guard let threadId else { return }
             open(threadId)
