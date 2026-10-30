@@ -13,7 +13,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 
@@ -48,7 +47,7 @@ class BridgeService : Service() {
             return START_NOT_STICKY
         }
         container.mirroringWanted = true
-        startForegroundNotification("Starting…")
+        startForegroundNotification()
 
         if (container.running.value) return START_STICKY
         container.running.value = true
@@ -76,15 +75,6 @@ class BridgeService : Service() {
                 advertiser.register(port, container.devices.deviceId, container.deviceName)
             }
         }
-        scope.launch {
-            combine(container.server.connected, container.server.port) { connected, port ->
-                when {
-                    port == null -> "Not listening"
-                    connected.isEmpty() -> "Waiting for a Mac on this Wi-Fi"
-                    else -> "Connected to ${connected.joinToString(", ")}"
-                }
-            }.collect { startForegroundNotification(it) }
-        }
         return START_STICKY
     }
 
@@ -101,8 +91,17 @@ class BridgeService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun startForegroundNotification(text: String) {
-        val notification = Notifications.foreground(this, text)
+    /**
+     * Posted once and never updated.
+     *
+     * It used to track the connection, which meant re-posting on every change — and the Mac
+     * races several endpoints per reconnect, so that was constant. Re-posting a notification
+     * the user has dismissed brings it straight back, which made the swipe Android 14 added
+     * useless here. The live status belongs in the app and on the Mac; this notification only
+     * exists because a foreground service must have one.
+     */
+    private fun startForegroundNotification() {
+        val notification = Notifications.foreground(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(
                 Notifications.ID_FOREGROUND,

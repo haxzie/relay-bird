@@ -42,13 +42,14 @@ object Notifications {
         )
     }
 
-    fun foreground(context: Context, text: String): Notification =
+    fun foreground(context: Context): Notification =
         NotificationCompat.Builder(context, CHANNEL_STATUS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("RelayBird")
-            .setContentText(text)
+            .setContentText("Mirroring your messages")
             .setContentIntent(openApp(context))
-            .setOngoing(true)
+            // Not setOngoing: since Android 14 that no longer blocks dismissal, and being
+            // dismissible is the point.
             .setShowWhen(false)
             .setSilent(true)
             // Keeps it out of the lock screen, where it would otherwise sit permanently.
