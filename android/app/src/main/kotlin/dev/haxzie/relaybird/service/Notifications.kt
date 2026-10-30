@@ -11,16 +11,28 @@ import dev.haxzie.relaybird.MainActivity
 import dev.haxzie.relaybird.R
 
 object Notifications {
-    const val CHANNEL_STATUS = "bridge_status"
+    // A channel's importance and badge setting are fixed once created — only the user can
+    // change them afterwards — so altering either means publishing a new channel id.
+    const val CHANNEL_STATUS = "bridge_status_v2"
+    private const val CHANNEL_STATUS_LEGACY = "bridge_status"
     const val CHANNEL_ALERTS = "bridge_alerts"
     const val ID_FOREGROUND = 1
     const val ID_RESUME_PROMPT = 2
 
     fun ensureChannels(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
+        manager.deleteNotificationChannel(CHANNEL_STATUS_LEGACY)
         manager.createNotificationChannel(
+            // IMPORTANCE_LOW, not MIN. Android's own guidance is that MIN must not be used with
+            // startForeground, and that doing so makes the system post its own, higher-priority
+            // "running in the background" notice instead — worse than the one being hidden.
             NotificationChannel(CHANNEL_STATUS, "Mirroring status", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "The ongoing notification Android requires while mirroring is active."
+                description = "The ongoing notification Android requires while mirroring is active. " +
+                    "On Android 14 and later you can swipe it away; mirroring keeps running."
+                setShowBadge(false)
+                enableLights(false)
+                enableVibration(false)
+                setSound(null, null)
             },
         )
         manager.createNotificationChannel(
@@ -38,6 +50,10 @@ object Notifications {
             .setContentIntent(openApp(context))
             .setOngoing(true)
             .setShowWhen(false)
+            .setSilent(true)
+            // Keeps it out of the lock screen, where it would otherwise sit permanently.
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build()
 
     /**
