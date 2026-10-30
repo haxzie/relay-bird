@@ -1,4 +1,4 @@
-# SMS Bridge
+# RelayBird
 
 Read your Android phone's text messages from the macOS menu bar. Over your Wi-Fi, directly —
 no account, no server, nothing leaves the network.
@@ -44,7 +44,7 @@ To revoke a Mac, remove it from **Paired Macs** on the phone; its session drops 
 ## How it works
 
 The phone is the server: it owns the messages, listens on a TLS socket and advertises
-`_smsbridge._tcp`. The Mac is always the client. Frames are length-prefixed JSON — no HTTP, no
+`_relaybird._tcp`. The Mac is always the client. Frames are length-prefixed JSON — no HTTP, no
 WebSocket.
 
 Pairing is mutually authenticated with HMAC-SHA256 and binds the QR secret to the exact

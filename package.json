@@ -1,5 +1,5 @@
 {
-  "name": "sms-bridge",
+  "name": "relaybird",
   "version": "1.0.0",
   "private": true,
   "description": "Mirror Android SMS to a macOS menu bar app over the local network",
@@ -12,11 +12,11 @@
     "test": "pnpm -r --sequential run test",
     "clean": "pnpm -r --sequential run clean && rm -rf dist",
     "release": "pnpm -r --sequential run release",
-    "android": "pnpm --filter @sms-bridge/android run",
-    "macos": "pnpm --filter @sms-bridge/macos run",
-    "dev:android": "pnpm --filter @sms-bridge/android run install-device",
-    "dev:macos": "pnpm --filter @sms-bridge/macos run start",
-    "device-test": "pnpm --filter @sms-bridge/android run device-test",
-    "logs": "pnpm --filter @sms-bridge/android run logs"
+    "android": "pnpm --filter @relaybird/android run",
+    "macos": "pnpm --filter @relaybird/macos run",
+    "dev:android": "pnpm --filter @relaybird/android run install-device",
+    "dev:macos": "pnpm --filter @relaybird/macos run start",
+    "device-test": "pnpm --filter @relaybird/android run device-test",
+    "logs": "pnpm --filter @relaybird/android run logs"
   }
 }

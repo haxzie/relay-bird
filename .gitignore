@@ -15,7 +15,7 @@ android/keystore.properties
 *.jks
 
 # Xcode — the project is generated from macos/project.yml by xcodegen
-macos/SmsBridge.xcodeproj/
+macos/RelayBird.xcodeproj/
 macos/*.xcworkspace/
 macos/build/
 macos/Config/Signing.local.xcconfig

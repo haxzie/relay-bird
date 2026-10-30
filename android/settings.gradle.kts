@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "SmsBridge"
+rootProject.name = "RelayBird"
 include(":app")

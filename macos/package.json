@@ -1,15 +1,15 @@
 {
-  "name": "@sms-bridge/macos",
+  "name": "@relaybird/macos",
   "version": "1.0.0",
   "private": true,
   "description": "macOS menu bar app: discovers the phone and mirrors its messages",
   "scripts": {
     "generate": "xcodegen generate",
-    "build": "pnpm run generate && xcodebuild -project SmsBridge.xcodeproj -scheme SmsBridge -configuration Debug build",
-    "test": "pnpm run generate && xcodebuild -project SmsBridge.xcodeproj -scheme SmsBridge -configuration Debug test",
-    "start": "pnpm run build && open \"$(xcodebuild -project SmsBridge.xcodeproj -scheme SmsBridge -configuration Debug -showBuildSettings | awk -F' = ' '/ BUILT_PRODUCTS_DIR/ {print $2; exit}')/SmsBridge.app\"",
-    "release": "pnpm run generate && mkdir -p ../dist && xcodebuild -project SmsBridge.xcodeproj -scheme SmsBridge -configuration Release -archivePath ../dist/SmsBridge.xcarchive archive && xcodebuild -project SmsBridge.xcodeproj -archivePath ../dist/SmsBridge.xcarchive -exportArchive -exportPath ../dist -exportOptionsPlist Config/ExportOptions.plist",
-    "notarize": "cd ../dist && ditto -c -k --keepParent SmsBridge.app SmsBridge.zip && xcrun notarytool submit SmsBridge.zip --keychain-profile smsbridge --wait && xcrun stapler staple SmsBridge.app && spctl -a -vv SmsBridge.app",
-    "clean": "rm -rf build SmsBridge.xcodeproj"
+    "build": "pnpm run generate && xcodebuild -project RelayBird.xcodeproj -scheme RelayBird -configuration Debug build",
+    "test": "pnpm run generate && xcodebuild -project RelayBird.xcodeproj -scheme RelayBird -configuration Debug test",
+    "start": "pnpm run build && open \"$(xcodebuild -project RelayBird.xcodeproj -scheme RelayBird -configuration Debug -showBuildSettings | awk -F' = ' '/ BUILT_PRODUCTS_DIR/ {print $2; exit}')/RelayBird.app\"",
+    "release": "pnpm run generate && mkdir -p ../dist && xcodebuild -project RelayBird.xcodeproj -scheme RelayBird -configuration Release -archivePath ../dist/RelayBird.xcarchive archive && xcodebuild -project RelayBird.xcodeproj -archivePath ../dist/RelayBird.xcarchive -exportArchive -exportPath ../dist -exportOptionsPlist Config/ExportOptions.plist",
+    "notarize": "cd ../dist && ditto -c -k --keepParent RelayBird.app RelayBird.zip && xcrun notarytool submit RelayBird.zip --keychain-profile relaybird --wait && xcrun stapler staple RelayBird.app && spctl -a -vv RelayBird.app",
+    "clean": "rm -rf build RelayBird.xcodeproj"
   }
 }

@@ -1,4 +1,4 @@
-name: SmsBridge
+name: RelayBird
 options:
   bundleIdPrefix: dev.haxzie
   deploymentTarget:
@@ -19,16 +19,16 @@ configFiles:
   Release: Config/Base.xcconfig
 
 targets:
-  SmsBridge:
+  RelayBird:
     type: application
     platform: macOS
     sources:
-      - path: SmsBridge
+      - path: RelayBird
     info:
-      path: SmsBridge/Resources/Info.plist
+      path: RelayBird/Resources/Info.plist
       properties:
-        CFBundleName: SMS Bridge
-        CFBundleDisplayName: SMS Bridge
+        CFBundleName: RelayBird
+        CFBundleDisplayName: RelayBird
         # Menu bar only: no Dock icon, no window on launch.
         LSUIElement: true
         LSMinimumSystemVersion: "14.0"
@@ -36,43 +36,43 @@ targets:
         # macOS 15+ gates Bonjour browse AND resolve behind local network permission, and
         # without these two keys it fails silently with no prompt at all.
         NSLocalNetworkUsageDescription: >-
-          SMS Bridge finds your paired phone on this Wi-Fi network so it can mirror your text
+          RelayBird finds your paired phone on this Wi-Fi network so it can mirror your text
           messages. Nothing is sent over the internet.
         NSBonjourServices:
-          - _smsbridge._tcp
+          - _relaybird._tcp
     entitlements:
-      path: SmsBridge/Resources/SmsBridge.entitlements
+      path: RelayBird/Resources/RelayBird.entitlements
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.haxzie.smsbridge
+        PRODUCT_BUNDLE_IDENTIFIER: dev.haxzie.relaybird
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
         COMBINE_HIDPI_IMAGES: YES
 
-  SmsBridgeTests:
+  RelayBirdTests:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - path: SmsBridgeTests
+      - path: RelayBirdTests
     dependencies:
-      - target: SmsBridge
+      - target: RelayBird
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.haxzie.smsbridge.tests
+        PRODUCT_BUNDLE_IDENTIFIER: dev.haxzie.relaybird.tests
         GENERATE_INFOPLIST_FILE: YES
 
 schemes:
-  SmsBridge:
+  RelayBird:
     build:
       targets:
-        SmsBridge: all
+        RelayBird: all
     run:
       config: Debug
     test:
       config: Debug
       targets:
-        - SmsBridgeTests
+        - RelayBirdTests
     archive:
       config: Release

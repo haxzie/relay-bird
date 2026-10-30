@@ -1,10 +1,10 @@
 # kotlinx.serialization generated serializers are referenced reflectively by name.
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.**
--keepclassmembers class dev.haxzie.smsbridge.net.** {
+-keepclassmembers class dev.haxzie.relaybird.net.** {
     *** Companion;
 }
--keepclasseswithmembers class dev.haxzie.smsbridge.net.** {
+-keepclasseswithmembers class dev.haxzie.relaybird.net.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
 

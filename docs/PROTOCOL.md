@@ -1,7 +1,7 @@
-# SMS Bridge wire protocol — v1
+# RelayBird wire protocol — v1
 
 Single source of truth for both apps. Any change here needs a matching change in
-`android/app/src/main/kotlin/dev/haxzie/smsbridge/net/` and `macos/SmsBridge/Net/`.
+`android/app/src/main/kotlin/dev/haxzie/relaybird/net/` and `macos/RelayBird/Net/`.
 
 ## Roles
 
@@ -10,7 +10,7 @@ Single source of truth for both apps. Any change here needs a matching change in
 
 ## Discovery
 
-The phone advertises Bonjour / mDNS service type `_smsbridge._tcp` on the local domain.
+The phone advertises Bonjour / mDNS service type `_relaybird._tcp` on the local domain.
 
 TXT record:
 
@@ -76,20 +76,20 @@ and carry a version, so a future protocol change can never produce a colliding M
 
 1. Phone generates its self-signed cert on first launch. `spkiHash = SHA256(cert SPKI DER)`.
 2. Mac generates `secret` = 32 bytes from a CSPRNG and renders the QR
-   `smsbridge://pair?v=1&name=<percent-encoded Mac name>&s=<base64url secret, no padding>`.
+   `relaybird://pair?v=1&name=<percent-encoded Mac name>&s=<base64url secret, no padding>`.
    Valid for 120 seconds, single use.
 3. The Android app scans it and stores `(secret, macName)` as a *pending* pairing.
 4. The Mac connects, accepts the phone's cert **in memory only**, and on `hello` with
    `paired: false` sends `pair` with
 
-       proof = H(secret, "smsbridge-pair-v1" ‖ spkiHash)
+       proof = H(secret, "relaybird-pair-v1" ‖ spkiHash)
 
    This binds the QR secret to the exact certificate the Mac actually saw. A man-in-the-middle
    presents its own certificate, so its `proof` is over the wrong SPKI and the phone rejects it.
 5. The phone verifies `proof` against its pending pairing, mints a random 32-byte `deviceKey`,
    and replies `paired` with
 
-       confirm   = H(secret, "smsbridge-confirm-v1" ‖ spkiHash ‖ utf8(macName))
+       confirm   = H(secret, "relaybird-confirm-v1" ‖ spkiHash ‖ utf8(macName))
        deviceKey = <32 random bytes>
 
 6. The Mac verifies `confirm` and **only then** commits the SPKI pin and `deviceKey` to the
@@ -99,7 +99,7 @@ and carry a version, so a future protocol change can never produce a colliding M
 8. On every later connect, `hello` carries `paired: true` and a fresh 32-byte `challenge`.
    The Mac replies `auth` with
 
-       proof = H(deviceKey, "smsbridge-auth-v1" ‖ challenge ‖ spkiHash)
+       proof = H(deviceKey, "relaybird-auth-v1" ‖ challenge ‖ spkiHash)
 
    A pin mismatch is a hard abort surfaced as "device identity changed — re-pair", never a
    silent re-pin.
@@ -118,9 +118,9 @@ deviceKey (b64) QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8=   # 0x40..0x5f
 challenge (b64) YGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn8=   # 0x60..0x7f
 macName         Test Mac
 
-pair    proof   5beecd9d109a6b7fed62a2704689789b3b6f52f4b78fe3bf362450c6c9bdcfc3
-confirm proof   c8d7debfe9850c2568e41cf93580cfb2f134905ef30165686b7525f1c8feffa0
-auth    proof   fcbe3f0a851c78503d84f4019bfc83a6cc6481bd09a8bbfdbfb5901831884157
+pair    proof   ae5e1c9c5e34a70cdc313eba20ce9c2b4272ed81a8e381b0c187b85bb25f2255
+confirm proof   688b0e4cbbd809ad9cc27d1b76c628622e3f825130c4ce3d6b9fce3f383f6de2
+auth    proof   490195dbe69816d467535d13a730bd765eee83aeea6caaff2a4a7b1c4c708f51
 ```
 
 ## Known limits (v1)

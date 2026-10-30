@@ -16,11 +16,11 @@ val keystoreProperties = Properties().apply {
 val hasReleaseKeystore = keystoreProperties.getProperty("storeFile") != null
 
 android {
-    namespace = "dev.haxzie.smsbridge"
+    namespace = "dev.haxzie.relaybird"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "dev.haxzie.smsbridge"
+        applicationId = "dev.haxzie.relaybird"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
