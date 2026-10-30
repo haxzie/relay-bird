@@ -5,6 +5,7 @@
   "description": "macOS menu bar app: discovers the phone and mirrors its messages",
   "scripts": {
     "generate": "xcodegen generate",
+    "icons": "swift ../tools/generate-macos-icons.swift ../assets/relaybird-mark-2048.png RelayBird/Resources/Assets.xcassets",
     "build": "pnpm run generate && xcodebuild -project RelayBird.xcodeproj -scheme RelayBird -configuration Debug build",
     "test": "pnpm run generate && xcodebuild -project RelayBird.xcodeproj -scheme RelayBird -configuration Debug test",
     "start": "pnpm run build && open \"$(xcodebuild -project RelayBird.xcodeproj -scheme RelayBird -configuration Debug -showBuildSettings | awk -F' = ' '/ BUILT_PRODUCTS_DIR/ {print $2; exit}')/RelayBird.app\"",

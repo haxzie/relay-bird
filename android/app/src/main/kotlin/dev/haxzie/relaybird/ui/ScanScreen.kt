@@ -11,17 +11,21 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -31,11 +35,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import dev.haxzie.relaybird.R
 import dev.haxzie.relaybird.net.PairingUri
 import dev.haxzie.relaybird.service.BridgeContainer
 import dev.haxzie.relaybird.service.BridgeService
@@ -60,10 +68,19 @@ fun ScanScreen(container: BridgeContainer, onDone: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Scan the Mac's code") },
-                actions = { TextButton(onClick = onDone) { Text("Cancel") } },
+                title = { Text("Scan the Mac's code", style = MaterialTheme.typography.titleLarge) },
+                actions = {
+                    TextButton(onClick = onDone) {
+                        Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                ),
             )
         },
     ) { padding ->
@@ -83,28 +100,47 @@ fun ScanScreen(container: BridgeContainer, onDone: () -> Unit) {
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_relaybird),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.size(48.dp),
+                        )
+                        Spacer(modifier = Modifier.size(20.dp))
                         Text(pairing.macName, style = MaterialTheme.typography.headlineSmall)
+                        Spacer(modifier = Modifier.size(8.dp))
                         Text(
                             "Ready to pair. The Mac will connect over Wi-Fi in a moment.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
                         )
-                        Button(onClick = onDone, modifier = Modifier.padding(top = 24.dp)) {
-                            Text("Done")
-                        }
+                        Spacer(modifier = Modifier.size(28.dp))
+                        PrimaryButton(text = "Done", onClick = onDone)
                     }
                 }
 
-                !hasCamera -> Column(modifier = Modifier.padding(24.dp)) {
-                    Text("Camera access is needed to scan the pairing code.")
-                    Button(
-                        onClick = { launcher.launch(Manifest.permission.CAMERA) },
-                        modifier = Modifier.padding(top = 12.dp),
-                    ) { Text("Allow camera") }
+                !hasCamera -> Column(
+                    modifier = Modifier.padding(Dimens.screenPadding),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(
+                        "Camera access is needed to scan the pairing code.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    PrimaryButton(text = "Allow camera") {
+                        launcher.launch(Manifest.permission.CAMERA)
+                    }
                 }
 
                 else -> {
-                    Box(modifier = Modifier.weight(1f)) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = Dimens.screenPadding)
+                            .clip(RoundedCornerShape(Dimens.cardRadius)),
+                    ) {
                         QrCameraPreview { raw ->
                             val pairing = PairingUri.parse(raw)
                             if (pairing == null) {
@@ -122,7 +158,8 @@ fun ScanScreen(container: BridgeContainer, onDone: () -> Unit) {
                         error ?: "Point the camera at the QR code shown in the Mac app.",
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(Dimens.screenPadding),
+                        textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (error != null) {
                             MaterialTheme.colorScheme.error

@@ -5,9 +5,11 @@ struct PairingPromptView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: "iphone.gen3.radiowaves.left.and.right")
-                .font(.system(size: 32))
-                .foregroundStyle(.tertiary)
+            Image("BrandMark")
+                .resizable()
+                .renderingMode(.template)
+                .frame(width: 44, height: 44)
+                .foregroundStyle(.secondary)
             Text("Pair your phone").font(.headline)
             Text("Install RelayBird on your Android phone, tap \"Pair a Mac\", then scan the code this Mac shows.")
                 .font(.caption)

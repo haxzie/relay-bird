@@ -18,10 +18,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.image = NSImage(
-            systemSymbolName: "message.badge.filled.fill",
-            accessibilityDescription: "RelayBird"
-        )
+        // Template image: alpha-only, so macOS tints it for light and dark menu bars.
+        statusItem.button?.image = NSImage(named: "MenuBarIcon").map {
+            $0.isTemplate = true
+            $0.accessibilityDescription = "RelayBird"
+            return $0
+        }
         statusItem.button?.imagePosition = .imageLeading
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePopover)
