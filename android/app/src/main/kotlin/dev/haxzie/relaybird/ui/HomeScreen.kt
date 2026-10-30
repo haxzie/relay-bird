@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,12 +27,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -95,6 +98,16 @@ fun HomeScreen(container: BridgeContainer, onPairMac: () -> Unit) {
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = onPairMac,
+                containerColor = RelayBirdColors.White,
+                contentColor = RelayBirdColors.Black,
+                shape = RoundedCornerShape(Dimens.cardRadius),
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("Pair a Mac", style = MaterialTheme.typography.labelLarge) },
+            )
+        },
         topBar = {
             TopAppBar(
                 title = {
@@ -156,13 +169,11 @@ fun HomeScreen(container: BridgeContainer, onPairMac: () -> Unit) {
                 ) { context.requestBatteryExemption() }
             }
 
-            PrimaryButton(text = "Pair a Mac", onClick = onPairMac)
-
             Text(
                 text = "PAIRED MACS",
                 style = SectionLabelStyle,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 6.dp),
+                modifier = Modifier.padding(top = 2.dp),
             )
 
             if (devices.isEmpty()) {
@@ -174,6 +185,8 @@ fun HomeScreen(container: BridgeContainer, onPairMac: () -> Unit) {
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
+                    // Clears the floating button, which would otherwise sit on the last row.
+                    contentPadding = PaddingValues(bottom = Dimens.buttonHeight + 24.dp),
                     modifier = Modifier.weight(1f, fill = false),
                 ) {
                     items(devices, key = { it.name }) { device ->
