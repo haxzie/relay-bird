@@ -10,6 +10,12 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,12 +35,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.LaptopMac
+import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,9 +61,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -98,16 +108,6 @@ fun HomeScreen(container: BridgeContainer, onPairMac: () -> Unit) {
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onPairMac,
-                containerColor = RelayBirdColors.White,
-                contentColor = RelayBirdColors.Black,
-                shape = RoundedCornerShape(Dimens.cardRadius),
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Pair a Mac", style = MaterialTheme.typography.labelLarge) },
-            )
-        },
         topBar = {
             TopAppBar(
                 title = {
@@ -143,6 +143,7 @@ fun HomeScreen(container: BridgeContainer, onPairMac: () -> Unit) {
                 onToggle = { on ->
                     if (on) BridgeService.start(context) else BridgeService.stop(context)
                 },
+                onPairMac = onPairMac,
             )
 
             lastError?.let {
@@ -185,8 +186,7 @@ fun HomeScreen(container: BridgeContainer, onPairMac: () -> Unit) {
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
-                    // Clears the floating button, which would otherwise sit on the last row.
-                    contentPadding = PaddingValues(bottom = Dimens.buttonHeight + 24.dp),
+                    contentPadding = PaddingValues(bottom = 16.dp),
                     modifier = Modifier.weight(1f, fill = false),
                 ) {
                     items(devices, key = { it.name }) { device ->
@@ -216,37 +216,30 @@ private fun MirrorCard(
     connected: List<String>,
     enabled: Boolean,
     onToggle: (Boolean) -> Unit,
+    onPairMac: () -> Unit,
 ) {
+    val linked = running && connected.isNotEmpty()
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(Dimens.cardRadius),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Mirror to my Macs", style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(3.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (running) {
-                        Box(
-                            modifier = Modifier
-                                .size(7.dp)
-                                .background(
-                                    color = if (connected.isEmpty()) {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    } else {
-                                        RelayBirdColors.Green
-                                    },
-                                    shape = CircleShape,
-                                ),
-                        )
-                        Spacer(modifier = Modifier.size(7.dp))
-                    }
+        Column {
+            LinkIllustration(
+                linked = linked,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 26.dp),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 18.dp, end = 18.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Mirror to my Macs", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = when {
                             !running -> "Off"
@@ -254,26 +247,125 @@ private fun MirrorCard(
                             else -> connected.joinToString(", ")
                         },
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (linked) RelayBirdColors.Green else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                Switch(
+                    checked = running,
+                    enabled = enabled,
+                    onCheckedChange = onToggle,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = RelayBirdColors.Black,
+                        checkedTrackColor = RelayBirdColors.White,
+                        checkedBorderColor = RelayBirdColors.White,
+                        uncheckedThumbColor = RelayBirdColors.Muted,
+                        uncheckedTrackColor = RelayBirdColors.SurfaceRaised,
+                        uncheckedBorderColor = RelayBirdColors.Border,
+                    ),
+                )
             }
-            Switch(
-                checked = running,
-                enabled = enabled,
-                onCheckedChange = onToggle,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = RelayBirdColors.Black,
-                    checkedTrackColor = RelayBirdColors.White,
-                    checkedBorderColor = RelayBirdColors.White,
-                    uncheckedThumbColor = RelayBirdColors.Muted,
-                    uncheckedTrackColor = RelayBirdColors.SurfaceRaised,
-                    uncheckedBorderColor = RelayBirdColors.Border,
+
+            Button(
+                onClick = onPairMac,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 18.dp, end = 18.dp, bottom = 18.dp)
+                    .height(48.dp),
+                shape = RoundedCornerShape(Dimens.buttonRadius),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RelayBirdColors.White,
+                    contentColor = RelayBirdColors.Black,
                 ),
-            )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Text("Pair a Mac", style = MaterialTheme.typography.labelLarge)
+            }
         }
     }
 }
+
+/**
+ * Phone and Mac with a run of dots between them: green once a Mac is actually connected, grey
+ * otherwise. The dots travel while connected, which is the clearest way to say "live" without
+ * adding any words.
+ */
+@Composable
+private fun LinkIllustration(linked: Boolean, modifier: Modifier = Modifier) {
+    val tint by animateColorAsState(
+        targetValue = if (linked) RelayBirdColors.Green else RelayBirdColors.Border,
+        animationSpec = tween(durationMillis = 400),
+        label = "linkTint",
+    )
+    val endpointTint by animateColorAsState(
+        targetValue = if (linked) RelayBirdColors.White else RelayBirdColors.Muted,
+        animationSpec = tween(durationMillis = 400),
+        label = "endpointTint",
+    )
+    val transition = rememberInfiniteTransition(label = "linkFlow")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = DOT_COUNT.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1600, easing = LinearEasing),
+        ),
+        label = "linkPhase",
+    )
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Endpoint(icon = Icons.Default.Smartphone, tint = endpointTint, description = "Phone")
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            repeat(DOT_COUNT) { index ->
+                // Each dot brightens as the phase passes it, so the run reads left to right.
+                val distance = ((phase - index + DOT_COUNT) % DOT_COUNT).coerceAtMost(
+                    (index - phase + DOT_COUNT) % DOT_COUNT,
+                )
+                val alpha = if (linked) {
+                    lerp(0.25f, 1f, (1f - (distance / 1.6f)).coerceIn(0f, 1f))
+                } else {
+                    1f
+                }
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(tint.copy(alpha = tint.alpha * alpha), CircleShape),
+                )
+            }
+        }
+        Endpoint(icon = Icons.Default.LaptopMac, tint = endpointTint, description = "Mac")
+    }
+}
+
+@Composable
+private fun Endpoint(icon: ImageVector, tint: Color, description: String) {
+    Box(
+        modifier = Modifier
+            .size(46.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = description,
+            tint = tint,
+            modifier = Modifier.size(24.dp),
+        )
+    }
+}
+
+private const val DOT_COUNT = 5
 
 @Composable
 private fun DeviceRow(name: String, detail: String, online: Boolean, onRemove: () -> Unit) {
@@ -285,9 +377,23 @@ private fun DeviceRow(name: String, detail: String, online: Boolean, onRemove: (
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 18.dp, top = 14.dp, bottom = 14.dp, end = 6.dp),
+                .padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LaptopMac,
+                    contentDescription = null,
+                    tint = if (online) RelayBirdColors.Green else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Spacer(modifier = Modifier.size(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(name, style = MaterialTheme.typography.bodyLarge)
                 Text(
