@@ -1,0 +1,72 @@
+name: Verify signing
+
+# Checks the signing credentials without building or publishing anything, so a release is not
+# the thing that discovers a wrong password. Safe to run at any time: it imports the
+# certificate into a throwaway keychain and only reads from the notary service.
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Credentials
+    runs-on: macos-15
+    steps:
+      - name: Developer ID certificate
+        env:
+          CERTIFICATE: ${{ secrets.CSC_LINK }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [ -n "$CERTIFICATE" ] || { echo "::error::CSC_LINK is not set"; exit 1; }
+          [ -n "$CERTIFICATE_PASSWORD" ] || { echo "::error::CSC_KEY_PASSWORD is not set"; exit 1; }
+
+          keychain="$RUNNER_TEMP/verify.keychain-db"
+          password=$(uuidgen)
+          security create-keychain -p "$password" "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          printf '%s' "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+
+          # A wrong password fails right here, which is the thing being tested.
+          if ! security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" \
+                 -T /usr/bin/codesign -T /usr/bin/security 2>"$RUNNER_TEMP/import.log"; then
+            echo "::error::the certificate would not import — CSC_KEY_PASSWORD is probably wrong"
+            sed 's/^/  /' "$RUNNER_TEMP/import.log"
+            exit 1
+          fi
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+          identity=$(security find-identity -v -p codesigning "$keychain" | grep "Developer ID Application" || true)
+          if [ -z "$identity" ]; then
+            echo "::error::imported, but it holds no Developer ID Application identity."
+            echo "An Apple Distribution certificate signs happily and Gatekeeper still refuses the download."
+            security find-identity -v -p codesigning "$keychain" | sed 's/^/  /'
+            exit 1
+          fi
+          echo "certificate ok: $(echo "$identity" | sed 's/^ *[0-9]*) [A-F0-9]* //')"
+          security delete-keychain "$keychain"
+
+      - name: Notarisation credentials
+        env:
+          KEY: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          for name in KEY KEY_ID ISSUER; do
+            [ -n "${!name}" ] || { echo "::error::$name is not set"; exit 1; }
+          done
+          key_path="$RUNNER_TEMP/asc.p8"
+          printf '%s' "$KEY" | base64 --decode > "$key_path"
+          chmod 600 "$key_path"
+
+          # Read-only: asks the notary service for this team's history. It answers only if the
+          # key, its id and the issuer all agree, so it proves the trio without submitting.
+          if ! xcrun notarytool history --key "$key_path" --key-id "$KEY_ID" --issuer "$ISSUER" \
+               > "$RUNNER_TEMP/history.log" 2>&1; then
+            echo "::error::the notary service rejected these credentials"
+            sed 's/^/  /' "$RUNNER_TEMP/history.log"
+            exit 1
+          fi
+          rm -f "$key_path"
+          echo "notarisation credentials accepted by Apple"
+          head -5 "$RUNNER_TEMP/history.log" | sed 's/^/  /'
