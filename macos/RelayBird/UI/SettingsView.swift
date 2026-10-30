@@ -11,18 +11,7 @@ struct SettingsView: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                IconButton(systemName: "chevron.left", help: "Back to conversations", action: onBack)
-                Text("Settings").font(.headline)
-                Spacer()
-            }
-            .padding(.horizontal, Header.horizontalPadding)
-            .frame(height: Header.height)
-
-            Divider()
-
-            ScrollView {
+        ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     if let phone = client.phone {
                         VStack(alignment: .leading, spacing: 2) {
@@ -72,8 +61,17 @@ struct SettingsView: View {
                     Button("Forget this phone", role: .destructive) { client.unpair() }
                         .controlSize(.small)
                 }
-                .padding(14)
+            .padding(14)
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack(spacing: 8) {
+                IconButton(systemName: "chevron.left", help: "Back to conversations", action: onBack)
+                Text("Settings").font(.headline)
+                Spacer()
             }
+            .padding(.horizontal, Header.horizontalPadding)
+            .frame(height: Header.height)
+            .background(ProgressiveBlur())
         }
     }
 

@@ -15,27 +15,34 @@ struct ThreadDetailView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                IconButton(systemName: "chevron.left", help: "Back to conversations", action: onBack)
+        content
+            .safeAreaInset(edge: .top, spacing: 0) { header }
+    }
 
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(thread?.title ?? "Conversation")
-                        .font(.headline)
-                        .lineLimit(1)
-                    if let thread, thread.displayName != nil {
-                        Text(thread.address)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+    private var header: some View {
+        HStack(spacing: 8) {
+            IconButton(systemName: "chevron.left", help: "Back to conversations", action: onBack)
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text(thread?.title ?? "Conversation")
+                    .font(.headline)
+                    .lineLimit(1)
+                if let thread, thread.displayName != nil {
+                    Text(thread.address)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
-                Spacer()
             }
-            .padding(.horizontal, Header.horizontalPadding)
-            .frame(height: Header.height)
+            Spacer()
+        }
+        .padding(.horizontal, Header.horizontalPadding)
+        .frame(height: Header.height)
+        .background(ProgressiveBlur())
+    }
 
-            Divider()
-
+    @ViewBuilder
+    private var content: some View {
+        Group {
             if messages.isEmpty {
                 EmptyStateView(
                     symbol: "ellipsis.bubble",

@@ -7,7 +7,37 @@ struct ThreadListView: View {
     @State private var confirmingMarkAll = false
 
     var body: some View {
-        VStack(spacing: 0) {
+        content
+            // safeAreaInset keeps the bar pinned and still lets the list scroll underneath it,
+            // which is what makes the blur worth having.
+            .safeAreaInset(edge: .top, spacing: 0) { header }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if client.threads.isEmpty {
+            EmptyStateView(
+                symbol: "message",
+                title: "No messages yet",
+                detail: client.state == .connected
+                    ? "Nothing in the phone's inbox."
+                    : "Waiting for the phone to come online."
+            )
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(client.threads) { thread in
+                        ThreadRow(thread: thread) { onOpen(thread.threadId) }
+                        Divider().padding(.leading, 12)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var header: some View {
+        Group {
             if confirmingMarkAll {
                 MarkAllConfirmation(
                     count: client.unreadCount,
@@ -41,28 +71,8 @@ struct ThreadListView: View {
                 .padding(.horizontal, Header.horizontalPadding)
                 .frame(height: Header.height)
             }
-
-            Divider()
-
-            if client.threads.isEmpty {
-                EmptyStateView(
-                    symbol: "message",
-                    title: "No messages yet",
-                    detail: client.state == .connected
-                        ? "Nothing in the phone's inbox."
-                        : "Waiting for the phone to come online."
-                )
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(client.threads) { thread in
-                            ThreadRow(thread: thread) { onOpen(thread.threadId) }
-                            Divider().padding(.leading, 12)
-                        }
-                    }
-                }
-            }
         }
+        .background(ProgressiveBlur())
     }
 }
 
