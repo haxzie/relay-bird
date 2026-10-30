@@ -53,7 +53,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -82,7 +81,6 @@ fun HomeScreen(container: BridgeContainer, onPairMac: () -> Unit) {
     val devices by container.devices.devices.collectAsState()
     val connected by container.server.connected.collectAsState()
     val lastError by container.lastError.collectAsState()
-    val port by container.server.port.collectAsState()
 
     var missingPermissions by remember { mutableStateOf(missingPermissions(context)) }
     var batteryExempt by remember { mutableStateOf(isBatteryExempt(context)) }
@@ -194,18 +192,6 @@ fun HomeScreen(container: BridgeContainer, onPairMac: () -> Unit) {
                         )
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            port?.let {
-                Text(
-                    text = "port $it · ${container.deviceName}",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 16.dp),
-                )
             }
         }
     }
