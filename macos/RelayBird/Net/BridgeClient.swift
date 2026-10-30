@@ -34,6 +34,9 @@ final class BridgeClient: ObservableObject {
     /// The thread the popover is showing, so its read mark keeps up with arriving messages.
     private var openThreadId: Int64?
 
+    /// How long a round of connection attempts may make no progress before it is abandoned.
+    private static let attemptTimeout: TimeInterval = 12
+
     private let discovery = Discovery()
     private var discovered: [DiscoveredPhone] = []
     private var attempts: [BridgeConnection] = []
@@ -41,6 +44,8 @@ final class BridgeClient: ObservableObject {
     private var active: BridgeConnection?
     private var reconnectDelay: TimeInterval = 1
     private var reconnectTask: Task<Void, Never>?
+    /// Gives a round of connection attempts a deadline — see [connectIfPossible].
+    private var attemptDeadline: Task<Void, Never>?
     private var watchdog: Task<Void, Never>?
     private var pairingTimer: Task<Void, Never>?
     /// Suppresses notification banners for the initial backlog of a fresh sync.
@@ -82,6 +87,7 @@ final class BridgeClient: ObservableObject {
         teardownAttempts()
         reconnectTask?.cancel()
         watchdog?.cancel()
+        attemptDeadline?.cancel()
     }
 
     // MARK: - Pairing
@@ -217,6 +223,32 @@ final class BridgeClient: ObservableObject {
             }
             attempts.append(connection)
             connection.start()
+        }
+
+        startAttemptDeadline()
+    }
+
+    /// Network.framework does not always report a dead endpoint as failed — a connection to a
+    /// port nobody is listening on can sit in `preparing` or `waiting` indefinitely, and the
+    /// phone picks a fresh port every time its service restarts, so the cached endpoint goes
+    /// stale routinely. Without a deadline such an attempt stays in `attempts` forever, which
+    /// blocks every future reconnect and leaves the UI on "Connecting…" for good.
+    private func startAttemptDeadline() {
+        attemptDeadline?.cancel()
+        attemptDeadline = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(Self.attemptTimeout * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self, self.active == nil, !self.attempts.isEmpty else { return }
+                self.attempts.forEach { $0.cancel() }
+                self.attempts = []
+                self.spkiByAttempt = [:]
+                // A stale cached endpoint is the usual reason; forget it so the next round
+                // relies on discovery.
+                AppSettings.cachedEndpoint = nil
+                self.state = .offline("Could not reach \(self.phone?.deviceName ?? "the phone")")
+                self.scheduleReconnect()
+            }
         }
     }
 
@@ -362,6 +394,7 @@ final class BridgeClient: ObservableObject {
     private func promote(_ connection: BridgeConnection) {
         guard active !== connection else { return }
         active = connection
+        attemptDeadline?.cancel()
         attempts.removeAll { $0 !== connection }
         reconnectDelay = 1
         state = .connected
@@ -381,6 +414,7 @@ final class BridgeClient: ObservableObject {
     }
 
     private func teardownAttempts() {
+        attemptDeadline?.cancel()
         attempts.forEach { $0.cancel() }
         active?.cancel()
         attempts = []

@@ -95,11 +95,23 @@ class SmsRepository(private val context: Context, private val contacts: ContactN
         Log.i(TAG, "markThreadRead($threadId) refused: ${it.message}")
     }.getOrDefault(0)
 
+    /**
+     * Ids of unread messages, grouped by thread.
+     *
+     * Deliberately not the shared projection: this only needs two id columns, and pulling
+     * message bodies for every unread row just to count them is a lot of IPC for nothing.
+     */
     private fun unreadCounts(watermarks: Map<Long, Long>): Map<Long, Int> {
         val idsByThread = HashMap<Long, MutableList<Long>>()
         // Inbox only: an outgoing row can carry read = 0 without meaning anything to the reader.
         val selection = "${Telephony.Sms.READ} = 0 AND ${Telephony.Sms.TYPE} = ${Telephony.Sms.MESSAGE_TYPE_INBOX}"
-        query(selection, null, UNREAD_SCAN_LIMIT)?.use { cursor ->
+        context.contentResolver.query(
+            Telephony.Sms.CONTENT_URI,
+            arrayOf(Telephony.Sms._ID, Telephony.Sms.THREAD_ID),
+            selection,
+            null,
+            "${Telephony.Sms.DATE} DESC LIMIT $UNREAD_SCAN_LIMIT",
+        )?.use { cursor ->
             val threadIdCol = cursor.getColumnIndexOrThrow(Telephony.Sms.THREAD_ID)
             val idCol = cursor.getColumnIndexOrThrow(Telephony.Sms._ID)
             while (cursor.moveToNext()) {
@@ -152,6 +164,11 @@ class SmsRepository(private val context: Context, private val contacts: ContactN
         )
         const val SNIPPET_CHARS = 140
         const val MESSAGES_PER_THREAD_SCAN = 8
-        const val UNREAD_SCAN_LIMIT = 500
+        /**
+         * A bound, not an expected size. At 500 a long-neglected inbox was undercounted —
+         * only the newest 500 unread messages were considered, so the badge sat well below
+         * the real number. Two id columns per row make a far larger cap cheap.
+         */
+        const val UNREAD_SCAN_LIMIT = 5000
     }
 }
