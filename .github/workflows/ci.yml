@@ -72,22 +72,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The handshake vectors are asserted by both test suites, and the two suites run on
-      # different machines above. This checks the document they are both copied from still
-      # carries the same numbers, so a change to one side cannot quietly rewrite the contract.
-      - name: Vectors in the doc match both implementations
+      # The handshake vectors are asserted by both test suites, and those suites run on
+      # different machines above, so nothing else would notice one side quietly rewriting the
+      # contract. The vectors are read out of the document rather than repeated here: a third
+      # copy is a third thing to forget, and this check already shipped once with a stale one.
+      - name: Vectors in the doc are asserted by both implementations
         run: |
           set -euo pipefail
-          for proof in \
-            "pair    proof:5beecd9d109a6b7fed62a2704689789b3b6f52f4b78fe3bf362450c6c9bdcfc3" \
-            "confirm proof:688b0e4cbbd809ad9cc27d1b76c628622e3f825130c4ce3d6b9fce3f383f6de2" \
-            "auth    proof:490195dbe69816d467535d13a730bd765eee83aeea6caaff2a4a7b1c4c708f51"
-          do
-            name="${proof%%:*}"
-            hex="${proof##*:}"
-            grep -q "$hex" docs/PROTOCOL.md \
-              || { echo "::error::$name in docs/PROTOCOL.md no longer matches the committed vector"; exit 1; }
-            grep -rq "$hex" android/app/src/test macos/RelayBirdTests \
-              || { echo "::error::$name is not asserted by both test suites"; exit 1; }
+          kotlin=android/app/src/test/kotlin/dev/haxzie/relaybird/ProofsTest.kt
+          swift=macos/RelayBirdTests/ProofsTests.swift
+
+          vectors=$(grep -oE '[0-9a-f]{64}' docs/PROTOCOL.md | sort -u)
+          count=$(printf '%s\n' "$vectors" | grep -c . || true)
+          if [ "$count" -ne 3 ]; then
+            echo "::error::expected 3 handshake vectors in docs/PROTOCOL.md, found $count"
+            exit 1
+          fi
+
+          for hex in $vectors; do
+            for file in "$kotlin" "$swift"; do
+              grep -q "$hex" "$file" || {
+                echo "::error::$file does not assert the vector $hex from docs/PROTOCOL.md"
+                exit 1
+              }
+            done
           done
-          echo "protocol vectors agree across the doc and both suites"
+          echo "all $count vectors are asserted on both sides"
