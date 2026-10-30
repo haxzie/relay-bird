@@ -45,20 +45,27 @@ An **Apple Distribution** certificate is not a substitute for a Developer ID one
 without complaint and Gatekeeper still refuses the download, so the failure lands on whoever
 installs it rather than in the build log.
 
-### Creating the Android keystore
+### The Android keystore
 
-There is no release keystore yet, so release APKs currently carry the debug signature. To make
-a real one — keep it somewhere safe, because an app signed with a different key cannot upgrade
-one signed with this one:
+`~/Keys/relaybird.jks`, alias `relaybird`, RSA 4096, valid for 10000 days; the password is in
+`~/Keys/relaybird-keystore-password.txt`, mode 600. Both are outside the repository and must
+stay that way.
+
+**Back it up.** An APK signed with a different key cannot upgrade one signed with this one —
+losing it means every installed copy has to be uninstalled before a new build will go on.
+
+### The two secrets that are not set
+
+`CSC_KEY_PASSWORD` and `APPLE_API_ISSUER` cannot be read back out of another repository's
+secrets, so they are the one thing left to do. Until they are set, the Mac build is ad-hoc
+signed, published as `-unsigned`, and Gatekeeper will refuse it on any other machine.
 
 ```sh
-keytool -genkeypair -v -keystore ~/Keys/relaybird.jks -alias relaybird \
-    -keyalg RSA -keysize 4096 -validity 10000
+# the password the Developer ID .p12 was exported with
+gh secret set CSC_KEY_PASSWORD --repo haxzie/relay-bird
 
-base64 -i ~/Keys/relaybird.jks | gh secret set ANDROID_KEYSTORE_BASE64 --repo haxzie/relay-bird
-gh secret set ANDROID_KEYSTORE_PASSWORD --repo haxzie/relay-bird
-gh secret set ANDROID_KEY_ALIAS --repo haxzie/relay-bird --body relaybird
-gh secret set ANDROID_KEY_PASSWORD --repo haxzie/relay-bird
+# App Store Connect -> Users and Access -> Integrations -> the Issuer ID above the key table
+gh secret set APPLE_API_ISSUER --repo haxzie/relay-bird
 ```
 
 ## Building locally

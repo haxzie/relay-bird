@@ -77,6 +77,13 @@ hard way:
 - Not distributable on Google Play, which restricts SMS permissions to default SMS/Phone/
   Assistant handlers. Sideload the signed APK.
 
+## Releasing
+
+Both apps carry one version and ship together, because the protocol version gates them against
+each other. Record what you changed with `pnpm changeset`; merging the *Version packages* pull
+request that CI opens bumps both, tags the commit, and publishes a signed APK and a signed,
+notarised Mac app to a GitHub release. `docs/RELEASING.md` has the detail.
+
 ## Signing
 
 Both are gitignored local files, with templates next to them:
