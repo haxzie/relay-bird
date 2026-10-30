@@ -189,17 +189,36 @@ final class MessageStore {
     }
 
     /// Records that everything up to `messageId` has been seen. Never moves backwards.
+    ///
+    /// Once the mark reaches the newest message the phone's count is zeroed too, not just
+    /// hidden: it describes messages this Mac has now read, so leaving it would make the next
+    /// arriving message increment from a stale number.
     func markRead(threadId: Int64, upTo messageId: Int64) {
         queue.sync {
             guard let statement = prepare("""
                 UPDATE threads
-                   SET last_read_message_id = MAX(last_read_message_id, ?)
-                 WHERE thread_id = ?
+                   SET last_read_message_id = MAX(last_read_message_id, ?1),
+                       phone_unread = CASE WHEN ?1 >= latest_message_id THEN 0
+                                           ELSE phone_unread END
+                 WHERE thread_id = ?2
             """) else { return }
             defer { sqlite3_finalize(statement) }
             bind(statement, 1, messageId)
             bind(statement, 2, threadId)
             step(statement)
+        }
+    }
+
+    /// Catches every thread's read mark up to its newest message. Threads whose newest id is
+    /// unknown are left alone rather than being marked read against a zero.
+    func markAllRead() {
+        queue.sync {
+            exec("""
+                UPDATE threads
+                   SET last_read_message_id = MAX(last_read_message_id, latest_message_id),
+                       phone_unread = 0
+                 WHERE latest_message_id > 0
+            """)
         }
     }
 

@@ -4,19 +4,40 @@ struct ThreadListView: View {
     @ObservedObject var client: BridgeClient
     let onOpen: (Int64) -> Void
 
+    @State private var confirmingMarkAll = false
+
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Messages").font(.headline)
-                Spacer()
-                if client.unreadCount > 0 {
-                    Text("\(client.unreadCount) unread")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            if confirmingMarkAll {
+                MarkAllConfirmation(
+                    count: client.unreadCount,
+                    onCancel: { confirmingMarkAll = false },
+                    onConfirm: {
+                        client.markAllRead()
+                        confirmingMarkAll = false
+                    }
+                )
+            } else {
+                HStack(spacing: 8) {
+                    Text("Messages").font(.headline)
+                    Spacer()
+                    if client.unreadCount > 0 {
+                        Text("\(client.unreadCount) unread")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button {
+                            confirmingMarkAll = true
+                        } label: {
+                            Image(systemName: "checkmark.message")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Mark all as read")
+                        .accessibilityLabel("Mark all as read")
+                    }
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
 
             Divider()
 
@@ -39,6 +60,35 @@ struct ThreadListView: View {
                 }
             }
         }
+    }
+}
+
+/// Asked inline rather than with a confirmationDialog: this lives in a transient popover,
+/// which dismisses as soon as a modal takes focus away from it.
+private struct MarkAllConfirmation: View {
+    let count: Int
+    let onCancel: () -> Void
+    let onConfirm: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Mark \(count) message\(count == 1 ? "" : "s") as read?")
+                .font(.subheadline.weight(.medium))
+            // Said plainly, because it is the part people would otherwise be surprised by.
+            Text("This clears them on this Mac. Your phone will still show them as unread — a non-default SMS app cannot change that.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Spacer()
+                Button("Cancel", action: onCancel)
+                Button("Mark all read", action: onConfirm)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .controlSize(.small)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 }
 

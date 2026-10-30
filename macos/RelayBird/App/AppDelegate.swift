@@ -50,8 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         client.onIncomingMessage = { [weak self] message, thread in
             self?.notifier.post(message: message, thread: thread)
         }
-        client.$threads
-            .map { threads in threads.reduce(0) { $0 + $1.unread } }
+        client.$unreadCount
             .removeDuplicates()
             .sink { [weak self] unread in
                 self?.statusItem.button?.title = unread > 0 ? " \(unread)" : ""

@@ -74,6 +74,55 @@ final class MessageStoreTests: XCTestCase {
         XCTAssertEqual(store.totalUnread(), 4)
     }
 
+    // MARK: - Mark all as read
+
+    func testMarkAllReadClearsEveryThread() {
+        store.upsertThreads([
+            thread(1, unread: 3, latest: 30),
+            thread(2, unread: 7, latest: 70),
+            thread(3, unread: 0, latest: 90),
+        ])
+        XCTAssertEqual(store.totalUnread(), 10)
+
+        store.markAllRead()
+        XCTAssertEqual(store.totalUnread(), 0)
+        XCTAssertTrue(store.threads().allSatisfy { $0.unread == 0 })
+    }
+
+    func testMarkAllReadSticksAcrossAResync() {
+        store.upsertThreads([thread(1, unread: 3, latest: 30)])
+        store.markAllRead()
+        store.upsertThreads([thread(1, unread: 3, latest: 30)])
+        XCTAssertEqual(store.totalUnread(), 0)
+    }
+
+    func testMarkAllReadProducesWatermarksForThePhone() {
+        store.upsertThreads([thread(1, unread: 3, latest: 30), thread(2, unread: 1, latest: 70)])
+        store.markAllRead()
+        XCTAssertEqual(
+            store.watermarks().sorted { $0.threadId < $1.threadId },
+            [
+                MessageStore.Watermark(threadId: 1, lastReadId: 30),
+                MessageStore.Watermark(threadId: 2, lastReadId: 70),
+            ]
+        )
+    }
+
+    func testMarkAllReadLeavesThreadsWithAnUnknownLatestAlone() {
+        // Marking read against a zero would wrongly silence the thread forever.
+        store.upsertThreads([thread(1, unread: 5, latest: 0)])
+        store.markAllRead()
+        XCTAssertEqual(store.totalUnread(), 5)
+        XCTAssertTrue(store.watermarks().isEmpty)
+    }
+
+    func testMarkAllReadDoesNotStopLaterMessages() {
+        store.upsertThreads([thread(1, unread: 2, latest: 20)])
+        store.markAllRead()
+        store.applyIncoming(message(21, thread: 1), displayName: nil)
+        XCTAssertEqual(store.threads().first?.unread, 1, "a new message still arrives unread")
+    }
+
     // MARK: - Watermarks
 
     func testOnlyReadThreadsProduceWatermarks() {

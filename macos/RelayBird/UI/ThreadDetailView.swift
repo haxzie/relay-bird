@@ -55,7 +55,11 @@ struct ThreadDetailView: View {
                         }
                         .padding(12)
                     }
-                    .onAppear { proxy.scrollTo(messages.last?.id, anchor: .bottom) }
+                    // A conversation opens at its newest message, however much history sits
+                    // above it and whether or not any of it is unread. This does the work on
+                    // the first layout pass; a scrollTo in onAppear races it and often lands
+                    // before the lazy rows exist.
+                    .defaultScrollAnchor(.bottom)
                     .onChange(of: messages.last?.id) { _, id in
                         withAnimation { proxy.scrollTo(id, anchor: .bottom) }
                     }

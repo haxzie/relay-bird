@@ -24,6 +24,9 @@ final class BridgeClient: ObservableObject {
     @Published private(set) var phone: PairedPhone?
     @Published private(set) var phoneName: String?
     @Published private(set) var lastSyncedAt: Date?
+    /// Kept as stored state rather than recomputed in the view, so rendering never touches
+    /// the database.
+    @Published private(set) var unreadCount: Int = 0
 
     var onIncomingMessage: ((WireMessage, WireThread?) -> Void)?
 
@@ -46,6 +49,7 @@ final class BridgeClient: ObservableObject {
     init(store: MessageStore = .default) {
         self.store = store
         threads = store.threads()
+        unreadCount = store.totalUnread()
         lastSyncedAt = store.syncedAt
         phoneName = store.phoneName
         phone = Keychain.load()
@@ -142,13 +146,20 @@ final class BridgeClient: ObservableObject {
         active?.send(.markRead(threadId: threadId, upToId: upTo))
     }
 
+    /// Clears the badge for every conversation at once.
+    func markAllRead() {
+        store.markAllRead()
+        refreshThreads()
+        // One resync rather than a frame per thread: the watermarks go with it, and the phone
+        // recomputes every count from them.
+        requestSync()
+    }
+
     func reconnectNow() {
         reconnectDelay = 1
         teardownAttempts()
         connectIfPossible()
     }
-
-    var unreadCount: Int { store.totalUnread() }
 
     // MARK: - Connecting
 
@@ -399,6 +410,11 @@ final class BridgeClient: ObservableObject {
 
     private func refreshThreads() {
         threads = store.threads()
+        unreadCount = store.totalUnread()
+    }
+
+    private func requestSync() {
+        active?.send(.sync(limit: 50, watermarks: store.watermarks()))
     }
 
     private func cacheEndpoint(_ endpoint: NWEndpoint) {
