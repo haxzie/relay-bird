@@ -12,14 +12,13 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 6) {
-                Button(action: onBack) { Image(systemName: "chevron.left") }
-                    .buttonStyle(.borderless)
+            HStack(spacing: 8) {
+                IconButton(systemName: "chevron.left", help: "Back to conversations", action: onBack)
                 Text("Settings").font(.headline)
                 Spacer()
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.horizontal, Header.horizontalPadding)
+            .frame(height: Header.height)
 
             Divider()
 

@@ -74,16 +74,14 @@ private struct StatusBar: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer()
-            Button {
-                route = route == .settings ? .threads : .settings
-            } label: {
-                Image(systemName: "gearshape")
-            }
-            .buttonStyle(.borderless)
-            .help("Settings")
+            IconButton(
+                systemName: "gearshape",
+                help: "Settings",
+                action: { route = route == .settings ? .threads : .settings }
+            )
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, Header.horizontalPadding)
+        .padding(.vertical, 6)
     }
 
     private var indicatorColor: Color {

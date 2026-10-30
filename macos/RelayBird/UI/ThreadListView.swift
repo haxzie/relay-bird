@@ -19,24 +19,27 @@ struct ThreadListView: View {
                 )
             } else {
                 HStack(spacing: 8) {
+                    Image("BrandMark")
+                        .resizable()
+                        .renderingMode(.template)
+                        .frame(width: 15, height: 15)
+                        .foregroundStyle(.primary)
                     Text("Messages").font(.headline)
                     Spacer()
                     if client.unreadCount > 0 {
                         Text("\(client.unreadCount) unread")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Button {
-                            confirmingMarkAll = true
-                        } label: {
-                            Image(systemName: "checkmark.message")
-                        }
-                        .buttonStyle(.borderless)
-                        .help("Mark all as read")
-                        .accessibilityLabel("Mark all as read")
+                        IconButton(
+                            systemName: "checkmark.message",
+                            help: "Mark all as read",
+                            action: { confirmingMarkAll = true },
+                            prominent: true
+                        )
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.horizontal, Header.horizontalPadding)
+                .frame(height: Header.height)
             }
 
             Divider()
@@ -87,7 +90,7 @@ private struct MarkAllConfirmation: View {
             }
         }
         .controlSize(.small)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, Header.horizontalPadding + 2)
         .padding(.vertical, 10)
     }
 }
