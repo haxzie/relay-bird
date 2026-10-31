@@ -1,8 +1,8 @@
 {
   "name": "@relaybird/web",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "private": true,
-  "description": "relaybird.haxzie.com \u2014 the download page, and the API the Mac app updates from",
+  "description": "relaybird.haxzie.com — the download page, and the API the Mac app updates from",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
