@@ -10,12 +10,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LaptopMac
 import androidx.compose.material.icons.filled.Smartphone
@@ -61,12 +58,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.lerp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -225,12 +220,22 @@ private fun MirrorCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column {
+            // The illustration sits on its own panel so it reads as a header rather than
+            // floating in the card's padding.
             LinkIllustration(
                 linked = linked,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 26.dp),
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(
+                            topStart = Dimens.cardRadius,
+                            topEnd = Dimens.cardRadius,
+                        ),
+                    )
+                    .padding(vertical = 28.dp),
             )
+            Spacer(modifier = Modifier.height(16.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -290,76 +295,85 @@ private fun MirrorCard(
 }
 
 /**
- * Phone and Mac with a run of dots between them: green once a Mac is actually connected, grey
- * otherwise. The dots travel while connected, which is the clearest way to say "live" without
- * adding any words.
+ * What the card leads with.
+ *
+ * Connected shows the paired devices with a tick over them — one mark that says it is working.
+ * Otherwise a phone and a Mac with a gap of dots between them, which is the same picture
+ * waiting to be completed.
  */
 @Composable
 private fun LinkIllustration(linked: Boolean, modifier: Modifier = Modifier) {
-    val tint by animateColorAsState(
-        targetValue = if (linked) RelayBirdColors.Green else RelayBirdColors.Border,
-        animationSpec = tween(durationMillis = 400),
-        label = "linkTint",
-    )
-    val endpointTint by animateColorAsState(
-        targetValue = if (linked) RelayBirdColors.White else RelayBirdColors.Muted,
-        animationSpec = tween(durationMillis = 400),
-        label = "endpointTint",
-    )
-    val transition = rememberInfiniteTransition(label = "linkFlow")
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = DOT_COUNT.toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1600, easing = LinearEasing),
-        ),
-        label = "linkPhase",
-    )
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Crossfade(targetState = linked, label = "linkState") { connected ->
+            if (connected) ConnectedMark() else WaitingLink()
+        }
+    }
+}
 
+@Composable
+private fun ConnectedMark() {
+    // The badge overhangs the icon, so the box is padded to keep it inside the card.
+    Box(modifier = Modifier.padding(6.dp)) {
+        Icon(
+            painter = painterResource(R.drawable.ic_devices),
+            contentDescription = "Phone and Mac connected",
+            tint = RelayBirdColors.White,
+            modifier = Modifier.size(64.dp),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 6.dp, y = (-6).dp)
+                .size(24.dp)
+                .background(RelayBirdColors.Green, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = RelayBirdColors.Black,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun WaitingLink() {
     Row(
-        modifier = modifier,
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Endpoint(icon = Icons.Default.Smartphone, tint = endpointTint, description = "Phone")
+        Endpoint(icon = Icons.Default.Smartphone, description = "Phone")
         Row(
             modifier = Modifier.padding(horizontal = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            repeat(DOT_COUNT) { index ->
-                // Each dot brightens as the phase passes it, so the run reads left to right.
-                val distance = ((phase - index + DOT_COUNT) % DOT_COUNT).coerceAtMost(
-                    (index - phase + DOT_COUNT) % DOT_COUNT,
-                )
-                val alpha = if (linked) {
-                    lerp(0.25f, 1f, (1f - (distance / 1.6f)).coerceIn(0f, 1f))
-                } else {
-                    1f
-                }
+            repeat(DOT_COUNT) {
                 Box(
                     modifier = Modifier
                         .size(6.dp)
-                        .background(tint.copy(alpha = tint.alpha * alpha), CircleShape),
+                        .background(RelayBirdColors.Border, CircleShape),
                 )
             }
         }
-        Endpoint(icon = Icons.Default.LaptopMac, tint = endpointTint, description = "Mac")
+        Endpoint(icon = Icons.Default.LaptopMac, description = "Mac")
     }
 }
 
 @Composable
-private fun Endpoint(icon: ImageVector, tint: Color, description: String) {
+private fun Endpoint(icon: ImageVector, description: String) {
     Box(
         modifier = Modifier
             .size(46.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp)),
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp)),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = description,
-            tint = tint,
+            tint = RelayBirdColors.Muted,
             modifier = Modifier.size(24.dp),
         )
     }
