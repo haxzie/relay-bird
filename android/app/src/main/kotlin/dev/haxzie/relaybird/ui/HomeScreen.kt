@@ -11,14 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.StartOffset
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,7 +64,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.lerp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -326,7 +318,6 @@ private fun LinkIllustration(linked: Boolean, modifier: Modifier = Modifier) {
 @Composable
 private fun ConnectedMark() {
     Box(contentAlignment = Alignment.Center) {
-        Ripples()
         // The same tile the phone and Mac sit in when waiting, so the two states are the same
         // object rather than two different drawings. The badge overhangs it, hence the padding.
         Box(modifier = Modifier.padding(6.dp)) {
@@ -350,43 +341,6 @@ private fun ConnectedMark() {
                     modifier = Modifier.size(15.dp),
                 )
             }
-        }
-    }
-}
-
-/**
- * Circles travelling outwards from the devices while the link is live.
- *
- * Staggered by even fractions of one period so a ring leaves as the last is fading, which
- * reads as continuous rather than as a pulse with a gap in it. Each fades as it grows, so the
- * outermost is nearly gone by the time it reaches its limit and there is no hard edge.
- */
-@Composable
-private fun Ripples(count: Int = 3) {
-    val transition = rememberInfiniteTransition(label = "ripples")
-    Box(
-        modifier = Modifier.size(RIPPLE_TO),
-        contentAlignment = Alignment.Center,
-    ) {
-        repeat(count) { index ->
-            val progress by transition.animateFloat(
-                initialValue = 0f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = RIPPLE_MILLIS, easing = LinearEasing),
-                    initialStartOffset = StartOffset(index * RIPPLE_MILLIS / count),
-                ),
-                label = "ripple$index",
-            )
-            Box(
-                modifier = Modifier
-                    .size(lerp(RIPPLE_FROM, RIPPLE_TO, progress))
-                    .border(
-                        width = 1.5.dp,
-                        color = RelayBirdColors.Green.copy(alpha = (1f - progress) * 0.45f),
-                        shape = CircleShape,
-                    ),
-            )
         }
     }
 }
@@ -438,12 +392,8 @@ private fun Endpoint(
 }
 
 private const val DOT_COUNT = 5
-private const val RIPPLE_MILLIS = 2600
-private val RIPPLE_FROM = 54.dp
-private val RIPPLE_TO = 112.dp
-
 /** Fixed, so neither the state change nor a growing ring resizes the card. */
-private val ILLUSTRATION_HEIGHT = 126.dp
+private val ILLUSTRATION_HEIGHT = 114.dp
 
 @Composable
 private fun DeviceRow(name: String, detail: String, online: Boolean, onRemove: () -> Unit) {
