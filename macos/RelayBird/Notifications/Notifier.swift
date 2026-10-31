@@ -1,16 +1,54 @@
+import AppKit
 import Foundation
 import UserNotifications
 
 /// Banner per incoming SMS. Clicking one opens that thread in the popover.
 @MainActor
-final class Notifier: NSObject, UNUserNotificationCenterDelegate {
+final class Notifier: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     nonisolated static let threadIdKey = "threadId"
+
+    /// Published so the settings screen can say when notifications are blocked, instead of
+    /// the app simply never notifying and never explaining why.
+    @Published private(set) var authorizationStatus: UNAuthorizationStatus = .notDetermined
 
     var onOpenThread: ((Int64) -> Void)?
 
-    func requestAuthorization() {
+    func start() {
         UNUserNotificationCenter.current().delegate = self
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        refreshStatus()
+    }
+
+    /// Asked for while the app is frontmost, not at launch.
+    ///
+    /// This app has no Dock icon and no window, so at launch it is never the active
+    /// application — and macOS answers a permission request from an app in that state by
+    /// denying it outright rather than prompting. The result was a permanent denial recorded
+    /// before the user ever saw a prompt, which is why notifications silently never arrived.
+    func requestAuthorizationIfNeeded() {
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { [weak self] settings in
+            Task { @MainActor in self?.authorizationStatus = settings.authorizationStatus }
+            guard settings.authorizationStatus == .notDetermined else { return }
+            center.requestAuthorization(options: [.alert, .sound]) { granted, error in
+                if let error {
+                    NSLog("RelayBird: notification authorisation failed: %@", error.localizedDescription)
+                }
+                NSLog("RelayBird: notification authorisation granted=%@", granted ? "yes" : "no")
+                Task { @MainActor in self?.refreshStatus() }
+            }
+        }
+    }
+
+    func refreshStatus() {
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            Task { @MainActor in self?.authorizationStatus = settings.authorizationStatus }
+        }
+    }
+
+    /// Opens the Notifications pane, since a denial can only be undone there.
+    func openSystemSettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications")!
+        NSWorkspace.shared.open(url)
     }
 
     func post(message: WireMessage, thread: WireThread?) {

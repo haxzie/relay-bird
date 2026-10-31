@@ -10,7 +10,7 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let client = BridgeClient()
-    private let notifier = Notifier()
+    let notifier = Notifier()
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
     private var pendingThreadId: Int64?
@@ -34,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.contentViewController = NSHostingController(
             rootView: RootView(
                 client: client,
+                notifier: notifier,
                 pendingThreadId: Binding(
                     get: { [weak self] in self?.pendingThreadId },
                     set: { [weak self] in self?.pendingThreadId = $0 }
@@ -45,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.pendingThreadId = threadId
             self?.showPopover()
         }
-        notifier.requestAuthorization()
+        notifier.start()
 
         client.onIncomingMessage = { [weak self] message, thread in
             self?.notifier.post(message: message, thread: thread)
@@ -76,5 +77,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let button = statusItem.button else { return }
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
+        // The app is frontmost now, which is the only state macOS will show a notification
+        // prompt in for an agent app like this one.
+        NSApp.activate(ignoringOtherApps: true)
+        notifier.requestAuthorizationIfNeeded()
     }
 }

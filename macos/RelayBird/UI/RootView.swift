@@ -3,6 +3,7 @@ import SwiftUI
 /// Popover content: the thread list, a thread, pairing, or settings.
 struct RootView: View {
     @ObservedObject var client: BridgeClient
+    @ObservedObject var notifier: Notifier
     @State private var route: Route = .threads
     @Binding var pendingThreadId: Int64?
 
@@ -51,7 +52,7 @@ struct RootView: View {
                     }
                 )
             case .settings:
-                SettingsView(client: client, onBack: { route = .threads })
+                SettingsView(client: client, notifier: notifier, onBack: { route = .threads })
             }
         }
     }

@@ -30,6 +30,10 @@ targets:
         # Menu bar only: no Dock icon, no window on launch.
         LSUIElement: true
         LSMinimumSystemVersion: "14.0"
+        # Without these the generated plist keeps Xcode's 1.0/1 defaults, so every build
+        # reported version 1.0 however the release was numbered.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSHumanReadableCopyright: ""
         # macOS 15+ gates Bonjour browse AND resolve behind local network permission, and
         # without these two keys it fails silently with no prompt at all.
