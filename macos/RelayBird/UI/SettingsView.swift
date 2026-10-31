@@ -17,7 +17,30 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 if let phone = client.phone {
-                    PhoneCard(phone: phone, connected: client.state == .connected)
+                    VStack(alignment: .leading, spacing: 8) {
+                        PhoneCard(phone: phone, connected: client.state == .connected)
+
+                        if confirmingForget {
+                            // Inline, like the mark-all prompt: a modal dismisses the popover
+                            // it was launched from.
+                            Callout(
+                                symbol: "exclamationmark.triangle",
+                                message: "Forgetting the phone deletes the pairing and the messages held on this Mac. You will need to scan a new code.",
+                                action: "Forget",
+                                destructive: true,
+                                onAction: {
+                                    client.unpair()
+                                    confirmingForget = false
+                                },
+                                onCancel: { confirmingForget = false }
+                            )
+                        } else {
+                            Button("Forget this phone", role: .destructive) {
+                                confirmingForget = true
+                            }
+                            .controlSize(.small)
+                        }
+                    }
                 }
 
                 Section("Notifications") {
@@ -64,25 +87,6 @@ struct SettingsView: View {
                         .controlSize(.small)
                 }
 
-                Divider()
-
-                if confirmingForget {
-                    // Inline, like the mark-all prompt: a modal would dismiss this popover.
-                    Callout(
-                        symbol: "exclamationmark.triangle",
-                        message: "Forgetting the phone deletes the pairing and the messages held on this Mac. You will need to scan a new code.",
-                        action: "Forget",
-                        destructive: true,
-                        onAction: {
-                            client.unpair()
-                            confirmingForget = false
-                        },
-                        onCancel: { confirmingForget = false }
-                    )
-                } else {
-                    Button("Forget this phone", role: .destructive) { confirmingForget = true }
-                        .controlSize(.small)
-                }
             }
             .padding(16)
         }

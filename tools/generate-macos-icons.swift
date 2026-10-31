@@ -76,22 +76,19 @@ func write(_ image: CGImage, to url: URL) {
     try! rep.representation(using: .png, properties: [:])!.write(to: url)
 }
 
-/// macOS app icon: a rounded tile inset from the canvas, following Apple's icon grid —
-/// the tile is ~80% of the canvas and its corner radius ~22.4% of the tile.
+/// macOS app icon.
+///
+/// A plain square, filled to every edge, with no rounding of its own. macOS 26 draws the tile
+/// shape itself and masks the artwork into it, so anything we round or inset leaves a gap
+/// where the system's own plate shows through — which is the white rim that appeared around
+/// this icon. Compare any system icon: they fill their tile completely.
 func appIcon(size: Int) -> CGImage {
     let ctx = context(size)
     let canvas = CGFloat(size)
-    let tileSize = canvas * 0.8046
-    let tile = CGRect(x: (canvas - tileSize) / 2, y: (canvas - tileSize) / 2,
-                      width: tileSize, height: tileSize)
-    let path = CGPath(roundedRect: tile, cornerWidth: tileSize * 0.2237,
-                      cornerHeight: tileSize * 0.2237, transform: nil)
-    ctx.addPath(path)
-    ctx.clip()
+    let tile = CGRect(x: 0, y: 0, width: canvas, height: canvas)
     ctx.setFillColor(CGColor(red: 0, green: 0, blue: 0, alpha: 1))
     ctx.fill(tile)
-    // The mark is already white with a clear background, so it lands straight on the tile.
-    ctx.draw(mark, in: fitted(mark, in: tile.insetBy(dx: tileSize * 0.22, dy: tileSize * 0.22)))
+    ctx.draw(mark, in: fitted(mark, in: tile.insetBy(dx: canvas * 0.26, dy: canvas * 0.26)))
     return ctx.makeImage()!
 }
 
