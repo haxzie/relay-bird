@@ -1,0 +1,86 @@
+name: Deploy Web
+
+# Only when the site changes. A phone-only or Mac-only push should not redeploy the Worker —
+# it costs a deployment id and buys nothing. This file is in the list so a change to these
+# rules is itself exercised.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy-web.yml"
+  # So a deploy can be retried, or run for a change this filter did not catch.
+  workflow_dispatch:
+
+# One Worker behind one custom domain, so two runs must never overlap. Not cancel-in-progress:
+# a deploy interrupted partway leaves the uploaded assets and the running code disagreeing.
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    # CLOUDFLARE_API_TOKEN wants the "Edit Cloudflare Workers" template. The account id is
+    # separate because a token scoped to several accounts cannot infer which one is meant.
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Fails here rather than shipping a Worker that throws on its first request. The site's
+      # own check only — the Mac build and the Android suite have no bearing on whether a
+      # Next.js route is safe to deploy, and waiting on a ten-minute macOS job to ship a
+      # one-line copy change would only push people towards deploying by hand.
+      - name: Typecheck
+        run: pnpm --filter @relaybird/web typecheck
+
+      # Refuses to start without a token, instead of building for five minutes and then
+      # failing at the upload with an error about authentication.
+      - name: Check for credentials
+        run: |
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID must both be set on this repository."
+            echo "Create a token with the 'Edit Cloudflare Workers' template at"
+            echo "https://dash.cloudflare.com/profile/api-tokens and add it with:"
+            echo "  gh secret set CLOUDFLARE_API_TOKEN -R haxzie/relay-bird"
+            exit 1
+          fi
+
+      # Builds Next, wraps it for workerd, uploads the assets and promotes the version.
+      - name: Build and deploy
+        run: pnpm --filter @relaybird/web run deploy
+
+      # The deploy can report success while the custom domain still points nowhere — the route
+      # is attached per environment, and a zone that has not finished provisioning answers
+      # from Cloudflare rather than from us. Better to find out here than from a user.
+      - name: Verify the site answers
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3 4 5; do
+            status=$(curl -sS -o /tmp/body -w '%{http_code}' https://relaybird.haxzie.com/ || echo 000)
+            if [ "$status" = "200" ] && grep -q RelayBird /tmp/body; then
+              echo "relaybird.haxzie.com is serving the site"
+              exit 0
+            fi
+            echo "attempt $attempt: status $status"
+            sleep 10
+          done
+          echo "::error::relaybird.haxzie.com did not serve the site (last status $status)."
+          echo "If this is the first deploy, add relaybird.haxzie.com as a Workers custom"
+          echo "domain for the 'relaybird-web' Worker (production environment) in the"
+          echo "Cloudflare dashboard, then re-run this workflow."
+          exit 1

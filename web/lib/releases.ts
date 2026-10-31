@@ -15,12 +15,14 @@ export type Release = {
   size: number
 }
 
-/** Matches the 60s cache-control the workflow writes, rather than guessing at a number. */
-const REVALIDATE = 60
-
 export async function latestRelease(): Promise<Release | null> {
   try {
-    const response = await fetch(`${ASSETS}/latest.json`, { next: { revalidate: REVALIDATE } })
+    // Uncached on purpose. Next's data cache needs OpenNext's incremental cache behind it,
+    // which on Workers means an R2 bucket plus a Durable Object queue — a lot of moving parts
+    // for one page. Rendering per request is always correct instead of correct-for-60s, and
+    // the bucket serves this file with its own 60s cache-control, so Cloudflare's edge absorbs
+    // the repeat traffic anyway.
+    const response = await fetch(`${ASSETS}/latest.json`, { cache: 'no-store' })
     if (!response.ok) return null
     return (await response.json()) as Release
   } catch {

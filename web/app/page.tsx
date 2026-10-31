@@ -1,5 +1,10 @@
 import { latestRelease, megabytes } from '@/lib/releases'
 
+// Rendered per request. Prerendering this page would pin it to whichever version was current
+// when CI last built the site, so it would keep offering an old DMG after every release until
+// something happened to rebuild it.
+export const dynamic = 'force-dynamic'
+
 export default async function Home() {
   const release = await latestRelease()
 

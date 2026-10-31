@@ -4,3 +4,7 @@ out/
 next-env.d.ts
 .env*.local
 .vercel
+.open-next/
+.wrangler/
+cloudflare-env.d.ts
+tsconfig.tsbuildinfo
