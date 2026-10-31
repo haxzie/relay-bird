@@ -47,6 +47,10 @@ targets:
         SUFeedURL: https://assets.haxzie.com/relaybird/appcast.xml
         SUEnableAutomaticChecks: true
         SUScheduledCheckInterval: 86400
+        # We are sandboxed, so Sparkle cannot write to /Applications itself. This routes the
+        # install through Installer.xpc inside the framework, which runs outside our sandbox.
+        # Without it an update downloads and verifies fine and then fails to install.
+        SUEnableInstallerLauncherService: true
         NSHumanReadableCopyright: ""
         # macOS 15+ gates Bonjour browse AND resolve behind local network permission, and
         # without these two keys it fails silently with no prompt at all.
@@ -60,6 +64,12 @@ targets:
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
+        # Lets us reach Sparkle's installer and status services by name. Sandboxed apps have
+        # no other way to talk to them, and Sparkle's own docs prescribe this exact pair.
+        # (Downloader.xpc is deliberately not enabled - we already hold network.client.)
+        com.apple.security.temporary-exception.mach-lookup.global-name:
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spks
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.haxzie.relaybird

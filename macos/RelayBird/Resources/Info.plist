@@ -34,6 +34,8 @@
 	<string>RelayBird finds your paired phone on this Wi-Fi network so it can mirror your text messages. Nothing is sent over the internet.</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
 	<key>SUFeedURL</key>
 	<string>https://assets.haxzie.com/relaybird/appcast.xml</string>
 	<key>SUPublicEDKey</key>
