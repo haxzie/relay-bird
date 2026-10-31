@@ -1,0 +1,198 @@
+name: Mirror release to R2
+
+# Puts the disk image somewhere the app can reach and tells Sparkle it exists. The GitHub
+# release stays the record of what shipped; this is what an installed copy actually talks to.
+#
+# Needs, as repository secrets:
+#   R2_ACCOUNT_ID          Cloudflare dashboard -> R2 -> Account details
+#   R2_ACCESS_KEY_ID       R2 -> Manage API tokens, object read+write on `relaybird`
+#   R2_SECRET_ACCESS_KEY
+#   SPARKLE_PRIVATE_KEY    the EdDSA key Sparkle checks every download against
+#
+# The public URL must be serving the bucket before this can pass: it verifies through the
+# domain rather than the bucket, because a write that succeeds behind a domain that is not
+# serving it is exactly the failure worth catching.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to mirror
+        required: true
+        type: string
+
+# One bucket and one appcast, so two runs must never overlap — and never cancelled part way,
+# since that strands an image nothing points at.
+concurrency:
+  group: mirror
+  cancel-in-progress: false
+
+env:
+  BUCKET: relaybird
+  PREFIX: relaybird
+  PUBLIC_URL: https://assets.haxzie.com
+  # The AWS CLI sends integrity headers R2 rejects unless they are asked for explicitly.
+  AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+  AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+  AWS_DEFAULT_REGION: auto
+
+jobs:
+  mirror:
+    name: Upload and publish
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve the release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          file=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .name' | head -1)
+          [ -n "$file" ] || { echo "::error::$TAG has no .dmg to mirror"; exit 1; }
+
+          mkdir -p dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$file" --dir dist
+
+          version="${TAG#v}"
+          published=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json publishedAt --jq .publishedAt)
+          {
+            echo "file=$file"
+            echo "version=$version"
+            echo "published_at=$published"
+            echo "size=$(stat -f%z "dist/$file")"
+          } >> "$GITHUB_OUTPUT"
+
+      # An appcast that points backwards would offer everyone a downgrade, and Sparkle would
+      # take it. Cheaper to refuse here than to notice afterwards.
+      - name: Refuse to go backwards
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -uo pipefail
+          current=$(curl -fsSL "$PUBLIC_URL/$PREFIX/latest.json" 2>/dev/null | jq -r .version 2>/dev/null || true)
+          if [ -z "$current" ]; then
+            echo "nothing published yet; $VERSION will be the first"
+            exit 0
+          fi
+          newest=$(printf '%s\n%s\n' "$current" "$VERSION" | sort -V | tail -1)
+          if [ "$newest" != "$VERSION" ] || [ "$current" = "$VERSION" ]; then
+            echo "::error::$VERSION is not newer than the published $current"
+            exit 1
+          fi
+          echo "$VERSION supersedes $current"
+
+      - name: Sign the image for Sparkle
+        id: sign
+        env:
+          KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          FILE: ${{ steps.release.outputs.file }}
+        run: |
+          set -euo pipefail
+          [ -n "$KEY" ] || { echo "::error::SPARKLE_PRIVATE_KEY is not set; installed copies would reject this update"; exit 1; }
+          curl -fsSL -o sparkle.tar.xz \
+            https://github.com/sparkle-project/Sparkle/releases/download/2.6.4/Sparkle-2.6.4.tar.xz
+          mkdir -p sparkle && tar -xf sparkle.tar.xz -C sparkle
+
+          key_file="$RUNNER_TEMP/sparkle.key"
+          printf '%s' "$KEY" > "$key_file"
+          chmod 600 "$key_file"
+          # Prints `sparkle:edSignature="..." length="..."`, which is what the appcast needs.
+          out=$(./sparkle/bin/sign_update "dist/$FILE" -f "$key_file")
+          rm -f "$key_file"
+          signature=$(echo "$out" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
+          [ -n "$signature" ] || { echo "::error::could not sign the image"; exit 1; }
+          echo "signature=$signature" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the disk image
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          FILE: ${{ steps.release.outputs.file }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Immutable: a given version's image never changes, so it can be cached forever.
+          aws s3 cp "dist/$FILE" "s3://$BUCKET/$PREFIX/$VERSION/$FILE" \
+            --endpoint-url "https://$ACCOUNT_ID.r2.cloudflarestorage.com" \
+            --cache-control "public, max-age=31536000, immutable" \
+            --only-show-errors
+
+      - name: Publish the appcast and latest.json
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          TAG: ${{ inputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+          FILE: ${{ steps.release.outputs.file }}
+          SIZE: ${{ steps.release.outputs.size }}
+          SIGNATURE: ${{ steps.sign.outputs.signature }}
+          PUBLISHED_AT: ${{ steps.release.outputs.published_at }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          url="$PUBLIC_URL/$PREFIX/$VERSION/$FILE"
+          date=$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$PUBLISHED_AT" "+%a, %d %b %Y %H:%M:%S +0000")
+          notes=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)
+
+          # Sparkle reads this; the app's SUFeedURL points straight at it.
+          {
+            echo '<?xml version="1.0" encoding="utf-8"?>'
+            echo '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">'
+            echo '  <channel>'
+            echo '    <title>RelayBird</title>'
+            echo '    <item>'
+            echo "      <title>$VERSION</title>"
+            echo "      <pubDate>$date</pubDate>"
+            echo "      <sparkle:version>$VERSION</sparkle:version>"
+            echo "      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>"
+            echo '      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>'
+            echo '      <description><![CDATA['
+            echo "$notes"
+            echo '      ]]></description>'
+            echo "      <enclosure url=\"$url\" sparkle:edSignature=\"$SIGNATURE\" length=\"$SIZE\" type=\"application/octet-stream\" />"
+            echo '    </item>'
+            echo '  </channel>'
+            echo '</rss>'
+          } > appcast.xml
+
+          jq -n --arg version "$VERSION" --arg tag "$TAG" --arg publishedAt "$PUBLISHED_AT" \
+                --arg filename "$FILE" --arg url "$url" --argjson size "$SIZE" \
+            '{version: $version, tag: $tag, publishedAt: $publishedAt,
+              platform: "darwin-universal", filename: $filename, url: $url, size: $size}' > latest.json
+
+          # Short TTL on the two objects that change: an update nobody can see for an hour is
+          # an update that did not ship.
+          for f in appcast.xml latest.json; do
+            type=application/json
+            [ "$f" = "appcast.xml" ] && type=application/xml
+            aws s3 cp "$f" "s3://$BUCKET/$PREFIX/$f" \
+              --endpoint-url "https://$ACCOUNT_ID.r2.cloudflarestorage.com" \
+              --content-type "$type" --cache-control "public, max-age=60" --only-show-errors
+          done
+
+      - name: Check it is actually served
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          FILE: ${{ steps.release.outputs.file }}
+        run: |
+          set -euo pipefail
+          curl -fsSL "$PUBLIC_URL/$PREFIX/appcast.xml" | grep -q "$VERSION" \
+            || { echo "::error::the appcast at $PUBLIC_URL/$PREFIX/appcast.xml does not mention $VERSION"; exit 1; }
+          code=$(curl -sIL -o /dev/null -w '%{http_code}' "$PUBLIC_URL/$PREFIX/$VERSION/$FILE")
+          [ "$code" = "200" ] || {
+            echo "::error::$PUBLIC_URL/$PREFIX/$VERSION/$FILE returned $code."
+            echo "Attach $PUBLIC_URL to the $BUCKET bucket in Cloudflare R2 -> Settings -> Custom Domains."
+            exit 1
+          }
+          echo "published at $PUBLIC_URL/$PREFIX/$VERSION/$FILE"

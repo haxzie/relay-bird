@@ -21,7 +21,9 @@
     "changeset": "changeset",
     "version-packages": "changeset version && node scripts/sync-versions.mjs && pnpm install --lockfile-only",
     "sync-versions": "node scripts/sync-versions.mjs",
-    "tag-release": "changeset tag"
+    "tag-release": "changeset tag",
+    "web": "pnpm --filter @relaybird/web run",
+    "dev:web": "pnpm --filter @relaybird/web run dev"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10"

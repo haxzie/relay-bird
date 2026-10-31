@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "relaybird-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-01",
+  // Required by OpenNext: the Next.js server it bundles reaches for node builtins, and
+  // without these the Worker fails to start rather than degrading.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "observability": { "enabled": true },
+
+  // Everything Next emits as a static file. The Worker does not run in front of these, so
+  // they are served straight from Cloudflare's edge.
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  "env": {
+    "production": {
+      "routes": [{ "pattern": "relaybird.haxzie.com", "custom_domain": true }],
+      "assets": {
+        "directory": ".open-next/assets",
+        "binding": "ASSETS"
+      },
+      "observability": { "enabled": true }
+    }
+  }
+}

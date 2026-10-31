@@ -16,10 +16,17 @@ configFiles:
   Debug: Config/Base.xcconfig
   Release: Config/Base.xcconfig
 
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.6.4
+
 targets:
   RelayBird:
     type: application
     platform: macOS
+    dependencies:
+      - package: Sparkle
     sources:
       - path: RelayBird
     info:
@@ -34,6 +41,16 @@ targets:
         # reported version 1.0 however the release was numbered.
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Sparkle refuses any download that does not verify against this key, so a tampered
+        # or truncated image is never installed.
+        SUPublicEDKey: TKe0ZXOk9H/eKKvTUkmHLtNSHLc5Ix1R1u3JlfWCdjA=
+        SUFeedURL: https://assets.haxzie.com/relaybird/appcast.xml
+        SUEnableAutomaticChecks: true
+        SUScheduledCheckInterval: 86400
+        # We are sandboxed, so Sparkle cannot write to /Applications itself. This routes the
+        # install through Installer.xpc inside the framework, which runs outside our sandbox.
+        # Without it an update downloads and verifies fine and then fails to install.
+        SUEnableInstallerLauncherService: true
         NSHumanReadableCopyright: ""
         # macOS 15+ gates Bonjour browse AND resolve behind local network permission, and
         # without these two keys it fails silently with no prompt at all.
@@ -47,6 +64,12 @@ targets:
       properties:
         com.apple.security.app-sandbox: true
         com.apple.security.network.client: true
+        # Lets us reach Sparkle's installer and status services by name. Sandboxed apps have
+        # no other way to talk to them, and Sparkle's own docs prescribe this exact pair.
+        # (Downloader.xpc is deliberately not enabled - we already hold network.client.)
+        com.apple.security.temporary-exception.mach-lookup.global-name:
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spks
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.haxzie.relaybird

@@ -1,3 +1,10 @@
 packages:
   - android
   - macos
+  - web
+
+# workerd is the Workers runtime itself; it has to run its install script to unpack the
+# platform binary, or `wrangler dev` has nothing to start. esbuild is the same story.
+onlyBuiltDependencies:
+  - esbuild
+  - workerd

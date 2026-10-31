@@ -1,0 +1,10 @@
+# Next.js build output and local env files.
+.next/
+out/
+next-env.d.ts
+.env*.local
+.vercel
+.open-next/
+.wrangler/
+cloudflare-env.d.ts
+tsconfig.tsbuildinfo

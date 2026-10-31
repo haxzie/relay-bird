@@ -285,3 +285,13 @@ jobs:
             --title "RelayBird $tag" \
             --notes-file "$RUNNER_TEMP/notes.md" \
             artifacts/android-apk/* artifacts/macos-app/*
+
+  mirror:
+    name: Mirror to R2
+    needs: publish
+    # Called, not triggered, for the same reason Release itself is: see release.yml's
+    # workflow_call note.
+    uses: ./.github/workflows/release-mirror.yml
+    with:
+      tag: ${{ inputs.tag || github.ref_name }}
+    secrets: inherit

@@ -6,6 +6,6 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [],
-  "fixed": [["@relaybird/android", "@relaybird/macos"]],
+  "fixed": [["@relaybird/android", "@relaybird/macos", "@relaybird/web"]],
   "privatePackages": { "version": true, "tag": true }
 }
