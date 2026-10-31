@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* The app is monochrome and dark-only; the site follows it rather than inventing a palette. */
+@theme {
+  --color-ink: #000000;
+  --color-surface: #141414;
+  --color-raised: #1f1f1f;
+  --color-edge: #2e2e2e;
+  --color-muted: #a6a6a6;
+  --color-live: #3fcf7f;
+}

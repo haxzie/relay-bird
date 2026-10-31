@@ -11,6 +11,7 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let client = BridgeClient()
     let notifier = Notifier()
+    private let updater = Updater()
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
     private var pendingThreadId: Int64?
@@ -35,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             rootView: RootView(
                 client: client,
                 notifier: notifier,
+                updater: updater,
                 pendingThreadId: Binding(
                     get: { [weak self] in self?.pendingThreadId },
                     set: { [weak self] in self?.pendingThreadId = $0 }
@@ -58,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             .store(in: &cancellables)
 
+        updater.start()
         client.start()
     }
 

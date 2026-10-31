@@ -16,10 +16,17 @@ configFiles:
   Debug: Config/Base.xcconfig
   Release: Config/Base.xcconfig
 
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.6.4
+
 targets:
   RelayBird:
     type: application
     platform: macOS
+    dependencies:
+      - package: Sparkle
     sources:
       - path: RelayBird
     info:
@@ -34,6 +41,12 @@ targets:
         # reported version 1.0 however the release was numbered.
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Sparkle refuses any download that does not verify against this key, so a tampered
+        # or truncated image is never installed.
+        SUPublicEDKey: TKe0ZXOk9H/eKKvTUkmHLtNSHLc5Ix1R1u3JlfWCdjA=
+        SUFeedURL: https://assets.haxzie.com/relaybird/appcast.xml
+        SUEnableAutomaticChecks: true
+        SUScheduledCheckInterval: 86400
         NSHumanReadableCopyright: ""
         # macOS 15+ gates Bonjour browse AND resolve behind local network permission, and
         # without these two keys it fails silently with no prompt at all.

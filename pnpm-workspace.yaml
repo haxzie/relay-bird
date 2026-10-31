@@ -1,3 +1,4 @@
 packages:
   - android
   - macos
+  - web
