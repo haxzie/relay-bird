@@ -20,8 +20,12 @@ pnpm changeset
    `android/version.properties` and `macos/Config/Version.xcconfig` — the files Gradle and
    Xcode actually read, since neither can read a `package.json`.
 3. The next **Version** run finds no pending changesets and tags the merge commit.
-4. That tag starts **Release**, which builds a signed APK and a signed, notarised, stapled
-   `.app`, then publishes both to a GitHub release.
+4. The same run then calls **Release**, which builds a signed APK and a signed, notarised,
+   stapled `.dmg`, and publishes both to a GitHub release.
+
+Release is *called* rather than triggered by the tag. GitHub does not start a workflow from a
+tag pushed with `GITHUB_TOKEN` — it suppresses that to avoid recursion — so a push trigger
+alone leaves the tag sitting there with no build against it.
 
 Nothing is published to npm; the packages are private and exist to give changesets something
 to version.

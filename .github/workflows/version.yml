@@ -16,6 +16,8 @@ jobs:
   version:
     name: Version packages
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,6 +45,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
       - name: Tag the release
+        id: tag
         if: steps.changesets.outputs.hasChangesets == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -58,4 +61,15 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$tag" -m "RelayBird $tag"
           git push origin "$tag"
-          echo "tagged $tag — release.yml takes it from here"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "tagged $tag"
+
+  release:
+    name: Release
+    needs: version
+    if: needs.version.outputs.tag != ''
+    # Called rather than triggered: see the note on workflow_call in release.yml.
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.version.outputs.tag }}
+    secrets: inherit

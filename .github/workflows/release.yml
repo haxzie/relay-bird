@@ -8,6 +8,15 @@ on:
       tag:
         description: Existing tag to build
         required: true
+        type: string
+  # Called straight from the Version workflow. A tag pushed with GITHUB_TOKEN does not start
+  # a workflow — GitHub suppresses that to avoid recursion — so the push trigger above never
+  # fires for an automated release and the two have to be chained explicitly.
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -21,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ inputs.tag || github.ref }}
 
       - uses: actions/setup-java@v4
         with:
@@ -49,7 +58,7 @@ jobs:
           version=$(node -p "require('./android/package.json').version")
           echo "version=$version" >> "$GITHUB_OUTPUT"
           tag="${GITHUB_REF_NAME#v}"
-          if [ -n "${{ github.event.inputs.tag }}" ]; then tag="${{ github.event.inputs.tag }}"; tag="${tag#v}"; fi
+          if [ -n "${{ inputs.tag }}" ]; then tag="${{ inputs.tag }}"; tag="${tag#v}"; fi
           if [ "$tag" != "$version" ]; then
             echo "::error::tag $tag does not match package version $version. Run the Version Packages PR, then tag that commit."
             exit 1
@@ -86,6 +95,9 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: ./gradlew :app:assembleRelease
 
+      # The platform goes in the filename. A bare "RelayBird-1.1.0.zip" sitting next to an
+      # .apk reads like source rather than the Mac app, and nobody installs a file they
+      # cannot identify.
       - name: Name the APK
         run: |
           set -euo pipefail
@@ -93,7 +105,7 @@ jobs:
           [ "${{ steps.keystore.outputs.signed }}" = "true" ] || suffix="-unsigned"
           mkdir -p dist
           cp android/app/build/outputs/apk/release/app-release.apk \
-             "dist/RelayBird-${{ steps.version.outputs.version }}$suffix.apk"
+             "dist/RelayBird-${{ steps.version.outputs.version }}-android$suffix.apk"
 
       - name: Remove the keystore
         if: always()
@@ -111,7 +123,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ inputs.tag || github.ref }}
 
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
@@ -161,36 +173,61 @@ jobs:
         working-directory: macos
         run: pnpm run release
 
+      # A disk image, because that is what a Mac app arrives in: open it, drag the app onto
+      # the Applications alias, done. A zip leaves the app wherever the browser put it.
+      - name: Build the disk image
+        id: dmg
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./macos/package.json').version")
+          suffix=""
+          [ "${{ steps.signing.outputs.signed }}" = "true" ] || suffix="-unsigned"
+          name="RelayBird-$version-macOS$suffix"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "dmg=dist/$name.dmg" >> "$GITHUB_OUTPUT"
+
+          staging="$RUNNER_TEMP/dmg"
+          rm -rf "$staging"
+          mkdir -p "$staging"
+          cp -R dist/RelayBird.app "$staging/"
+          ln -s /Applications "$staging/Applications"
+
+          hdiutil create -volname RelayBird -srcfolder "$staging" \
+            -ov -format UDZO "dist/$name.dmg"
+
+      # The image is signed as well as the app inside it. An unsigned image makes Gatekeeper
+      # complain about the download itself, whatever the app inside it says.
+      - name: Sign the disk image
+        if: steps.signing.outputs.signed == 'true'
+        run: codesign --sign "Developer ID Application" --timestamp "${{ steps.dmg.outputs.dmg }}"
+
       - name: Notarise and staple
         if: steps.signing.outputs.signed == 'true'
         env:
           KEY: ${{ secrets.APPLE_API_KEY_BASE64 }}
           KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          DMG: ${{ steps.dmg.outputs.dmg }}
         run: |
           set -euo pipefail
           if [ -z "$KEY" ] || [ -z "$KEY_ID" ] || [ -z "$ISSUER" ]; then
-            echo "::warning::notarisation credentials missing; the app is signed but not notarised, so Gatekeeper will block it on another Mac"
+            echo "::warning::notarisation credentials missing; signed but not notarised, so Gatekeeper will block this on another Mac"
             exit 0
           fi
           key_path="$RUNNER_TEMP/asc.p8"
           printf '%s' "$KEY" | base64 --decode > "$key_path"
           chmod 600 "$key_path"
-          ditto -c -k --keepParent dist/RelayBird.app "$RUNNER_TEMP/notarise.zip"
-          xcrun notarytool submit "$RUNNER_TEMP/notarise.zip" \
-            --key "$key_path" --key-id "$KEY_ID" --issuer "$ISSUER" --wait
-          xcrun stapler staple dist/RelayBird.app
-          rm -f "$key_path"
-          # Proves the stapled ticket is accepted, rather than trusting that submit succeeded.
-          spctl -a -vvv -t exec dist/RelayBird.app
 
-      - name: Zip the app
-        run: |
-          set -euo pipefail
-          version=$(node -p "require('./macos/package.json').version")
-          suffix=""
-          [ "${{ steps.signing.outputs.signed }}" = "true" ] || suffix="-unsigned"
-          ditto -c -k --keepParent dist/RelayBird.app "dist/RelayBird-$version$suffix.zip"
+          # Submitting the image covers the app inside it, so one round trip does both, and
+          # the ticket staples to the thing the user actually downloads.
+          xcrun notarytool submit "$DMG" \
+            --key "$key_path" --key-id "$KEY_ID" --issuer "$ISSUER" --wait
+          xcrun stapler staple "$DMG"
+          rm -f "$key_path"
+
+          # Checks the ticket is accepted rather than trusting that submit returned success.
+          # The open context is the one Gatekeeper uses for a downloaded disk image.
+          spctl -a -vvv -t open --context context:primary-signature "$DMG"
 
       - name: Delete the signing keychain
         if: always()
@@ -201,7 +238,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: macos-app
-          path: dist/*.zip
+          path: dist/*.dmg
           if-no-files-found: error
 
   publish:
@@ -211,7 +248,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ inputs.tag || github.ref }}
 
       - uses: actions/download-artifact@v4
         with:
@@ -225,10 +262,26 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          tag="${{ inputs.tag || github.ref_name }}"
           notes=$(awk '/^## /{ if (seen) exit; seen=1; next } seen' android/CHANGELOG.md 2>/dev/null || true)
           [ -n "$notes" ] || notes="See the changelogs in android/ and macos/."
+
+          # Spelled out because the two apps only work as a pair: the protocol version gates
+          # them against each other, so mixing releases produces a version-mismatch error.
+          {
+            echo "### Downloads"
+            echo
+            echo "Install **both** — a phone and a Mac from different releases will not pair."
+            echo
+            echo "| Platform | File | How |"
+            echo "|---|---|---|"
+            echo "| macOS | \`*-macOS.dmg\` | Open it, drag RelayBird to Applications |"
+            echo "| Android | \`*-android.apk\` | \`adb install -r\`, or open it on the phone |"
+            echo
+            echo "$notes"
+          } > "$RUNNER_TEMP/notes.md"
+
           gh release create "$tag" \
             --title "RelayBird $tag" \
-            --notes "$notes" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
             artifacts/android-apk/* artifacts/macos-app/*
