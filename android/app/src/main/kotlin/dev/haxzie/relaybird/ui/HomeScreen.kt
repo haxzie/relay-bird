@@ -243,7 +243,7 @@ private fun MirrorCard(
                             topEnd = Dimens.cardRadius,
                         ),
                     )
-                    .padding(vertical = 34.dp),
+                ,
             )
             Spacer(modifier = Modifier.height(16.dp))
             Row(
@@ -313,7 +313,10 @@ private fun MirrorCard(
  */
 @Composable
 private fun LinkIllustration(linked: Boolean, modifier: Modifier = Modifier) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+    Box(
+        modifier = modifier.height(ILLUSTRATION_HEIGHT),
+        contentAlignment = Alignment.Center,
+    ) {
         Crossfade(targetState = linked, label = "linkState") { connected ->
             if (connected) ConnectedMark() else WaitingLink()
         }
@@ -361,25 +364,30 @@ private fun ConnectedMark() {
 @Composable
 private fun Ripples(count: Int = 3) {
     val transition = rememberInfiniteTransition(label = "ripples")
-    repeat(count) { index ->
-        val progress by transition.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = RIPPLE_MILLIS, easing = LinearEasing),
-                initialStartOffset = StartOffset(index * RIPPLE_MILLIS / count),
-            ),
-            label = "ripple$index",
-        )
-        Box(
-            modifier = Modifier
-                .size(lerp(RIPPLE_FROM, RIPPLE_TO, progress))
-                .border(
-                    width = 1.5.dp,
-                    color = RelayBirdColors.Green.copy(alpha = (1f - progress) * 0.45f),
-                    shape = CircleShape,
+    Box(
+        modifier = Modifier.size(RIPPLE_TO),
+        contentAlignment = Alignment.Center,
+    ) {
+        repeat(count) { index ->
+            val progress by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = RIPPLE_MILLIS, easing = LinearEasing),
+                    initialStartOffset = StartOffset(index * RIPPLE_MILLIS / count),
                 ),
-        )
+                label = "ripple$index",
+            )
+            Box(
+                modifier = Modifier
+                    .size(lerp(RIPPLE_FROM, RIPPLE_TO, progress))
+                    .border(
+                        width = 1.5.dp,
+                        color = RelayBirdColors.Green.copy(alpha = (1f - progress) * 0.45f),
+                        shape = CircleShape,
+                    ),
+            )
+        }
     }
 }
 
@@ -433,6 +441,9 @@ private const val DOT_COUNT = 5
 private const val RIPPLE_MILLIS = 2600
 private val RIPPLE_FROM = 54.dp
 private val RIPPLE_TO = 112.dp
+
+/** Fixed, so neither the state change nor a growing ring resizes the card. */
+private val ILLUSTRATION_HEIGHT = 126.dp
 
 @Composable
 private fun DeviceRow(name: String, detail: String, online: Boolean, onRemove: () -> Unit) {
