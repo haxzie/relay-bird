@@ -227,7 +227,22 @@ jobs:
           # the ticket staples to the thing the user actually downloads.
           xcrun notarytool submit "$DMG" \
             --key "$key_path" --key-id "$KEY_ID" --issuer "$ISSUER" --wait
-          xcrun stapler staple "$DMG"
+          # Apple's ticket-delivery endpoint (api.apple-cloudkit.com) drops connections often
+          # enough to fail a build whose notarisation was already Accepted, and the ticket can
+          # lag a few seconds behind submit returning. Both look identical from here, and both
+          # are fixed by asking again rather than by rebuilding and resubmitting.
+          attempt=1
+          until xcrun stapler staple "$DMG"; do
+            if [ "$attempt" -ge 5 ]; then
+              echo "::error::stapling failed 5 times; notarisation was accepted, so this is Apple-side"
+              rm -f "$key_path"
+              exit 1
+            fi
+            delay=$((attempt * 20))
+            echo "stapling attempt $attempt failed; retrying in ${delay}s"
+            sleep "$delay"
+            attempt=$((attempt + 1))
+          done
           rm -f "$key_path"
 
           # Checks the ticket is accepted rather than trusting that submit returned success.
