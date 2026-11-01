@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 import { AndroidGlyph, AppleGlyph } from '@/components/Glyphs'
+import { InstallCommand } from '@/components/InstallCommand'
 import { TrackedLink } from '@/components/TrackedLink'
 import { latestRelease, megabytes, type Release } from '@/lib/releases'
 import { REPO } from '@/lib/site'
@@ -47,7 +48,15 @@ export default async function Download() {
         )}
       </div>
 
-      <div className="mt-14 grid gap-4 sm:grid-cols-2">
+      <div className="mt-12">
+        <InstallCommand />
+      </div>
+
+      <p className="mt-14 text-center text-xs uppercase tracking-[0.14em] text-muted">
+        or install each half yourself
+      </p>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <Platform
           name="macOS"
           glyph={<AppleGlyph className="h-6 w-auto" />}
@@ -81,13 +90,21 @@ export default async function Download() {
           tone="android"
           notes={[
             'Not on Google Play: Play restricts SMS permissions to default SMS apps',
-            'Install directly from the releases page',
+            'Play Protect blocks SMS apps installed from a browser — install over ADB',
             'The app tells you when a new version is out',
           ]}
         />
       </div>
 
-      <p className="mt-10 text-center text-xs text-muted">
+      <p className="mt-6 text-center text-xs text-muted">
+        Android blocks sideloaded apps that read SMS.{' '}
+        <Link className="underline underline-offset-4" href="''' + GUIDE + '''">
+          Here is why, and how to install anyway
+        </Link>
+        .
+      </p>
+
+      <p className="mt-3 text-center text-xs text-muted">
         Both devices must be on the same Wi-Fi network.{' '}
         <Link className="underline underline-offset-4" href="/blog/how-to-view-android-sms-on-mac">
           Setup takes about five minutes

@@ -4,8 +4,7 @@ import { Features } from '@/components/Features'
 import { HeroMock } from '@/components/HeroMock'
 import { HowItWorks } from '@/components/HowItWorks'
 import { UseCases } from '@/components/UseCases'
-import { latestRelease, megabytes, type Release } from '@/lib/releases'
-import { REPO } from '@/lib/site'
+import { latestRelease, type Release } from '@/lib/releases'
 
 // Rendered per request. Prerendering this page would pin it to whichever version was current
 // when CI last built the site, so it would keep offering an old DMG after every release until
@@ -59,8 +58,11 @@ export default async function Home() {
 }
 
 /**
- * Both downloads. The Mac button always goes somewhere: with nothing published yet it points
- * at the releases page rather than sitting there dead.
+ * One button to the download page, rather than a platform choice in the hero.
+ *
+ * The page it leads to can explain the install script, the ADB requirement and the Play
+ * Protect block — none of which fits beside a button, and all of which someone needs before
+ * the Android half will actually install.
  */
 function DownloadButtons({
   release,
@@ -70,28 +72,18 @@ function DownloadButtons({
   className?: string
 }) {
   return (
-    <div className={`flex flex-wrap items-center gap-3 ${className}`}>
+    <div className={`flex flex-col items-center gap-3 ${className}`}>
       <TrackedLink
-        href={release?.mac.url ?? `${REPO}/releases`}
-        event="download_clicked"
-        properties={{ platform: 'mac', version: release?.version ?? 'none', placement: 'cta' }}
-        className="flex items-center gap-2.5 rounded-full bg-[#0A84FF] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#0A84FF]/90"
+        href="/download"
+        event="download_cta_clicked"
+        properties={{ version: release?.version ?? 'none' }}
+        className="rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-black transition hover:opacity-90"
       >
-        <AppleGlyph className="h-4 w-auto" />
-        Download for Mac
-        {release && <span className="font-normal text-white/60">{megabytes(release.mac.size)}</span>}
+        Download RelayBird
       </TrackedLink>
-      <TrackedLink
-        href={release?.android.url ?? `${REPO}/releases`}
-        event="download_clicked"
-        properties={{ platform: 'android', version: release?.version ?? 'none', placement: 'cta' }}
-        className="flex items-center gap-2.5 rounded-full border border-white/30 px-6 py-3 text-sm font-semibold text-white transition hover:border-white/60 hover:bg-white/5"
-      >
-        {/* The robot in Android green, not the Play badge: the APK is not a Play listing,
-            and Google's badge terms expect that badge to link to one. */}
-        <AndroidGlyph className="h-4 w-auto text-[#3DDC84]" />
-        Download for Android
-      </TrackedLink>
+      <p className="text-xs text-muted">
+        {release ? `Version ${release.version} · ` : ''}Mac and Android
+      </p>
     </div>
   )
 }
