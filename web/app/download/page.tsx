@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 import { AndroidGlyph, AppleGlyph } from '@/components/Glyphs'
+import { TrackedLink } from '@/components/TrackedLink'
 import { latestRelease, megabytes, type Release } from '@/lib/releases'
 import { REPO } from '@/lib/site'
 
@@ -141,12 +142,14 @@ function Platform({
 
       {/* Pushed to the bottom so the two cards' buttons line up whatever the copy length. */}
       <div className="mt-auto pt-7">
-        <a
+        <TrackedLink
           href={href}
+          event="download_clicked"
+          properties={{ platform: tone, placement: 'download_page' }}
           className={`flex items-center justify-center gap-2.5 rounded-full px-6 py-3 text-sm font-semibold transition ${button}`}
         >
           {cta}
-        </a>
+        </TrackedLink>
         <p className="mt-3 text-center text-xs text-muted">{detail}</p>
       </div>
     </div>

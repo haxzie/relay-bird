@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var manualEndpointInvalid = false
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var confirmingForget = false
+    @State private var analyticsEnabled = AppSettings.analyticsEnabled
 
     var body: some View {
         ScrollView {
@@ -66,6 +67,19 @@ struct SettingsView: View {
                             try? value ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister()
                             launchAtLogin = SMAppService.mainApp.status == .enabled
                         }
+                }
+
+                Section("Analytics") {
+                    Toggle("Send anonymous usage data", isOn: $analyticsEnabled)
+                        .onChange(of: analyticsEnabled) { _, value in
+                            AppSettings.analyticsEnabled = value
+                        }
+                    Text("Counts of things like pairing and connecting, tied to a random id for this Mac. Never message content, phone numbers or contact names. This is the only thing RelayBird sends off your network.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Reset the random id") { AppSettings.resetInstallId() }
+                        .font(.caption)
                 }
 
                 Section("Connection") {
