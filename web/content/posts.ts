@@ -17,6 +17,91 @@ export type Post = {
 
 export const POSTS: Post[] = [
   {
+    slug: 'android-play-protect-blocked',
+    title: 'Play Protect blocked the install: what to do',
+    date: '2026-11-01',
+    summary:
+      'Android blocks any sideloaded app that reads SMS, by design and regardless of who made it. Here is why, and the three ways to install anyway.',
+    body: `
+Installing the RelayBird APK from a browser shows this:
+
+> This app can request access to sensitive data. This can increase the risk of identity
+> theft or financial fraud.
+
+The install is blocked. Nothing is wrong with the download — this happens to every build,
+on every device, for a documented reason.
+
+## Why
+
+Google Play Protect treats anything downloaded through a browser, messaging app or file
+manager as an *internet-sideloading source*. If such an app also declares one of four
+sensitive permissions — \`READ_SMS\`, \`RECEIVE_SMS\`, notification listener or accessibility —
+Play Protect [blocks the installation
+automatically](https://developers.google.com/android/play-protect/warning-dev-guidance).
+
+The reasoning is sound. Reading someone's texts is how one-time passwords get stolen, and
+that is the single most common shape of Android financial fraud. RelayBird reads your texts
+for a different reason, but the permission it asks for is identical to the one malware asks
+for, and Play Protect cannot tell the difference at install time.
+
+This is not about the app being new, unsigned or unpopular. The APK is signed with a
+4096-bit release key and notarised through the same pipeline as the Mac build. The block is
+categorical: declare the permission, get blocked.
+
+## The short way
+
+The installer does both halves, and puts the Android app on over ADB:
+
+\`\`\`
+curl -fsSL https://relaybird.haxzie.com/install.sh | sh
+\`\`\`
+
+It fetches the current release, checks the Mac app's signature before installing it, and
+walks you through enabling USB debugging if the phone is not already connected. If you would
+rather do it by hand, the three routes below are what it is doing.
+
+## Three ways to install by hand
+
+### Install over ADB
+
+The block applies to internet-sideloading sources. A computer using the Android debug bridge
+is not one, so this route is unaffected:
+
+1. On the phone, enable **Developer options** (tap **Build number** in Settings → About
+   seven times), then turn on **USB debugging**.
+2. Connect the phone to your computer.
+3. Run \`adb install RelayBird-android.apk\`.
+
+This is the cleanest option and the one we use ourselves.
+
+### Install anyway, where the device offers it
+
+Some Android builds show **More details** on the warning, with an **Install anyway**
+underneath. Tap through it and the install proceeds. Whether this appears depends on your
+Android version and your manufacturer — several OEMs have removed it.
+
+### Turn Play Protect scanning off briefly
+
+In the Play Store, tap your profile picture → **Play Protect** → the gear icon → turn off
+**Scan apps with Play Protect**, install RelayBird, then **turn it back on**.
+
+Leaving it off is a bad idea. It is the thing that catches actual SMS-stealing malware, and
+that malware is common. Turn it off for the install and on again immediately.
+
+## What we are doing about it
+
+Google lists *"apps whose primary purpose is to handle SMS / MMS content"* among the allowed
+uses of these permissions, which is a fair description of RelayBird. There is an appeal
+route for apps blocked in error, and it has been submitted.
+
+The other route is Google Play, which RelayBird cannot use either: Play restricts SMS
+permissions to apps registered as your default SMS handler, and RelayBird deliberately
+cannot send messages. Being the default SMS app would mean becoming a different product.
+
+Until an appeal lands, ADB is the reliable path.
+`.trim(),
+  },
+  {
     slug: 'how-to-view-android-sms-on-mac',
     title: 'How to view Android SMS on Mac',
     date: '2026-11-01',
