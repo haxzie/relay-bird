@@ -118,6 +118,8 @@ install_mac() {
 
 # --- the Android app ---------------------------------------------------------
 
+ADB=''
+
 find_adb() {
   if command -v adb >/dev/null 2>&1; then printf 'adb'; return 0; fi
   for candidate in \
@@ -193,15 +195,12 @@ await_device() {
 choose_device() {
   count=$(usable_devices | wc -l | tr -d ' ')
 
-  if [ "$count" -eq 1 ]; then
-    line=$(usable_devices)
-    say "   ${DIM}found $(printf '%s' "$line" | cut -f2)${N}" >&2
-    printf '%s' "$(printf '%s' "$line" | cut -f1)"
-    return 0
-  fi
-
   say "" >&2
-  say "   ${B}More than one device is connected${N}" >&2
+  if [ "$count" -eq 1 ]; then
+    say "   ${B}Connected device${N}" >&2
+  else
+    say "   ${B}$count devices are connected${N}" >&2
+  fi
   i=1
   usable_devices | while IFS="$(printf '\t')" read -r serial label; do
     say "     $i) $label  ${DIM}$serial${N}" >&2
@@ -215,11 +214,17 @@ choose_device() {
   fi
 
   while :; do
-    ask "Which one should RelayBird go on? [1-$count, or s to skip]" >&2
+    if [ "$count" -eq 1 ]; then
+      ask "Install RelayBird on this device? [enter to confirm, s to skip]" >&2
+    else
+      ask "Which one should RelayBird go on? [1-$count, enter for 1, s to skip]" >&2
+    fi
     read -r choice < /dev/tty || return 1
+    # Enter takes the first, which is the only one when there is only one.
+    [ -z "$choice" ] && choice=1
     case "$choice" in
       s|S|skip) return 1 ;;
-      ''|*[!0-9]*) ;;
+      *[!0-9]*) ;;
       *)
         if [ "$choice" -ge 1 ] && [ "$choice" -le "$count" ]; then
           usable_devices | sed -n "${choice}p" | cut -f1
@@ -231,23 +236,82 @@ choose_device() {
   done
 }
 
+# Resolved before anything is installed, so a missing ADB is a question asked at the start
+# rather than a dead end reached after the Mac app is already on disk.
+ensure_adb() {
+  step "Checking what is needed"
+
+  if ADB=$(find_adb); then
+    say "   ${DIM}adb: $ADB${N}"
+    return 0
+  fi
+
+  say "   ${DIM}adb: not found${N}"
+  say ""
+  say "   RelayBird's Android half installs over the Android debug bridge. That is not a"
+  say "   preference: Play Protect blocks any app that reads SMS when it is installed from"
+  say "   a browser, so ADB is the only route that works."
+  say ""
+
+  if ! command -v brew >/dev/null 2>&1; then
+    warn "Homebrew is not installed either, so this script cannot install ADB for you."
+    say "   Get platform-tools from ${B}developer.android.com/tools/releases/platform-tools${N},"
+    say "   put it on your PATH, and run this again."
+    say ""
+    say "   ${DIM}The Mac app will still be installed.${N}"
+    return 1
+  fi
+
+  if [ ! -r /dev/tty ]; then
+    warn "No terminal to ask on, so ADB will not be installed. The Mac app will still go on."
+    return 1
+  fi
+
+  ask "Install it now with ${B}brew install --cask android-platform-tools${N}? [Y/n]"
+  read -r reply < /dev/tty || return 1
+  case "$reply" in
+    n|N|no|No) say "   ${DIM}Skipping ADB. The Mac app will still be installed.${N}"; return 1 ;;
+  esac
+
+  say ""
+  brew install --cask android-platform-tools || {
+    warn "Homebrew could not install ADB. The Mac app will still be installed."
+    return 1
+  }
+  say ""
+
+  if ADB=$(find_adb); then
+    say "   ${DIM}adb: $ADB${N}"
+    return 0
+  fi
+  warn "ADB still is not on the PATH. Open a new terminal and run this again."
+  return 1
+}
+
 install_android() {
+  [ -n "$ADB" ] || { warn "Skipping the phone: ADB is not available."; return 0; }
+
   APK_URL=$(field android url); APK_NAME=$(field android filename)
   [ -n "$APK_URL" ] || { warn "The feed has no Android download; skipping the phone."; return 0; }
 
   step "Installing the Android app"
 
-  if ! ADB=$(find_adb); then
-    warn "ADB is not installed, so the phone half cannot be installed here."
-    say ""
-    say "   Install it with:  ${B}brew install --cask android-platform-tools${N}"
-    say "   then run this script again."
-    say ""
-    say "   ${DIM}Without ADB the APK has to be installed from the phone, and Android"
-    say "   blocks that for apps that read SMS. See relaybird.haxzie.com/blog.${N}"
-    return 0
+  # Asked every time, even when a phone is already attached. Someone running this has not
+  # necessarily plugged in the phone they mean to install on, and an unannounced install
+  # onto whatever happens to be connected is the wrong surprise.
+  say ""
+  say "   ${B}Connect the phone you want RelayBird on${N}"
+  say "   1. Settings ${DIM}→${N} About phone ${DIM}→${N} tap ${B}Build number${N} seven times"
+  say "   2. Settings ${DIM}→${N} System ${DIM}→${N} Developer options ${DIM}→${N} turn on ${B}USB debugging${N}"
+  say "   3. Plug it into this Mac with a cable that carries data"
+  say "   4. Tap ${B}Allow${N} when the phone asks about USB debugging"
+  say ""
+
+  if [ -r /dev/tty ]; then
+    ask "Press enter once it is connected, or type ${B}s${N} to skip the phone:"
+    read -r reply < /dev/tty || return 0
+    case "$reply" in s|S|skip) warn "Skipped the phone."; return 0 ;; esac
   fi
-  say "   ${DIM}using $ADB${N}"
 
   if [ -z "$(usable_devices)" ]; then
     await_device || { warn "Skipped the phone. Run this again when it is connected."; return 0; }
@@ -292,6 +356,7 @@ install_android() {
 [ "$(uname -s)" = "Darwin" ] || die "This installer is for macOS. RelayBird's other half is an Android app."
 
 WORK=$(mktemp -d)
+ensure_adb || true
 install_mac
 install_android
 
