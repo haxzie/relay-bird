@@ -130,6 +130,107 @@ find_adb() {
   return 1
 }
 
+# Lines from `adb devices -l` that are actually usable, as "serial<TAB>label".
+usable_devices() {
+  "$ADB" devices -l 2>/dev/null | sed -n '2,$p' | awk '
+    $2 == "device" {
+      serial = $1
+      model = ""
+      for (i = 3; i <= NF; i++) if ($i ~ /^model:/) { model = substr($i, 7); gsub(/_/, " ", model) }
+      if (model == "") model = (serial ~ /^emulator-/) ? "Android emulator" : "Android device"
+      printf "%s\t%s\n", serial, model
+    }'
+}
+
+unauthorised_devices() {
+  "$ADB" devices 2>/dev/null | sed -n '2,$p' | awk '$2 == "unauthorized" { print $1 }'
+}
+
+connect_instructions() {
+  say ""
+  say "   ${B}Connect your phone${N}"
+  say "   1. Settings ${DIM}→${N} About phone ${DIM}→${N} tap ${B}Build number${N} seven times"
+  say "   2. Settings ${DIM}→${N} System ${DIM}→${N} Developer options ${DIM}→${N} turn on ${B}USB debugging${N}"
+  say "   3. Plug the phone into this Mac with a cable"
+  say "   4. On the phone, tap ${B}Allow${N} when it asks about USB debugging"
+  say ""
+}
+
+# Waits for at least one usable device, re-checking rather than asking once. Returns 1 if
+# the user gives up, which is a skip and not a failure.
+await_device() {
+  [ -r /dev/tty ] || { warn "No terminal to prompt on; skipping the phone."; return 1; }
+
+  while [ -z "$(usable_devices)" ]; do
+    if [ -n "$(unauthorised_devices)" ]; then
+      warn "The phone is connected but has not authorised this Mac."
+      say "   Unlock it and tap ${B}Allow USB debugging${N} — tick ${DIM}always allow${N} to avoid this next time."
+      say ""
+    else
+      connect_instructions
+    fi
+    ask "Press enter to check again, or type ${B}s${N} to skip the phone:"
+    read -r reply < /dev/tty || return 1
+    case "$reply" in
+      s|S|skip) return 1 ;;
+    esac
+    printf '   checking…'
+    # The bridge can report a device a moment before it is ready to take an install.
+    i=0
+    while [ "$i" -lt 10 ]; do
+      [ -n "$(usable_devices)" ] && break
+      printf '.'
+      sleep 1
+      i=$((i + 1))
+    done
+    printf '\n'
+  done
+  return 0
+}
+
+# Prints the chosen serial. With one device it says which and moves on; with several it asks,
+# because `adb install` with more than one attached simply refuses.
+choose_device() {
+  count=$(usable_devices | wc -l | tr -d ' ')
+
+  if [ "$count" -eq 1 ]; then
+    line=$(usable_devices)
+    say "   ${DIM}found $(printf '%s' "$line" | cut -f2)${N}" >&2
+    printf '%s' "$(printf '%s' "$line" | cut -f1)"
+    return 0
+  fi
+
+  say "" >&2
+  say "   ${B}More than one device is connected${N}" >&2
+  i=1
+  usable_devices | while IFS="$(printf '\t')" read -r serial label; do
+    say "     $i) $label  ${DIM}$serial${N}" >&2
+    i=$((i + 1))
+  done
+  say "" >&2
+
+  if [ ! -r /dev/tty ]; then
+    warn "No terminal to choose on; skipping the phone." >&2
+    return 1
+  fi
+
+  while :; do
+    ask "Which one should RelayBird go on? [1-$count, or s to skip]" >&2
+    read -r choice < /dev/tty || return 1
+    case "$choice" in
+      s|S|skip) return 1 ;;
+      ''|*[!0-9]*) ;;
+      *)
+        if [ "$choice" -ge 1 ] && [ "$choice" -le "$count" ]; then
+          usable_devices | sed -n "${choice}p" | cut -f1
+          return 0
+        fi
+        ;;
+    esac
+    warn "Enter a number between 1 and $count." >&2
+  done
+}
+
 install_android() {
   APK_URL=$(field android url); APK_NAME=$(field android filename)
   [ -n "$APK_URL" ] || { warn "The feed has no Android download; skipping the phone."; return 0; }
@@ -146,58 +247,44 @@ install_android() {
     say "   blocks that for apps that read SMS. See relaybird.haxzie.com/blog.${N}"
     return 0
   fi
-
   say "   ${DIM}using $ADB${N}"
 
-  if [ -z "$("$ADB" devices | sed -n '2,$p' | grep -w device || true)" ]; then
-    say ""
-    say "   ${B}Connect your phone${N}"
-    say "   1. Settings ${DIM}→${N} About phone ${DIM}→${N} tap ${B}Build number${N} seven times"
-    say "   2. Settings ${DIM}→${N} System ${DIM}→${N} Developer options ${DIM}→${N} turn on ${B}USB debugging${N}"
-    say "   3. Plug the phone into this Mac with a cable"
-    say "   4. On the phone, tap ${B}Allow${N} when it asks about USB debugging"
-    say ""
-    ask "Press enter once the phone is connected, or Ctrl-C to skip:"
-    # Reading from the terminal, not stdin: stdin is the script itself under `curl | sh`.
-    if [ -r /dev/tty ]; then read -r _ < /dev/tty; else warn "No terminal to prompt on; skipping."; return 0; fi
-
-    say "   waiting for the phone…"
-    if ! "$ADB" wait-for-device 2>/dev/null; then
-      warn "No phone appeared. Run the script again once it is connected."
-      return 0
-    fi
+  if [ -z "$(usable_devices)" ]; then
+    await_device || { warn "Skipped the phone. Run this again when it is connected."; return 0; }
   fi
 
-  UNAUTH=$("$ADB" devices | sed -n '2,$p' | grep -w unauthorized || true)
-  if [ -n "$UNAUTH" ]; then
-    warn "The phone is connected but has not authorised this Mac."
-    say "   Unlock it and tap ${B}Allow USB debugging${N}, then run this script again."
-    return 0
-  fi
-
-  MODEL=$("$ADB" shell getprop ro.product.model 2>/dev/null | tr -d '\r' || true)
-  [ -n "$MODEL" ] && say "   ${DIM}found $MODEL${N}"
+  SERIAL=$(choose_device) || { warn "Skipped the phone."; return 0; }
+  [ -n "$SERIAL" ] || { warn "No device chosen; skipping the phone."; return 0; }
 
   say "   ${DIM}${APK_NAME}${N}"
   curl -fsSL --max-time 300 -o "$WORK/app.apk" "$APK_URL" || die "APK download failed."
 
-  # -r keeps existing data, so pairings survive an upgrade.
-  if "$ADB" install -r "$WORK/app.apk" >/dev/null 2>&1; then
-    say "   ${G}installed${N} on $([ -n "$MODEL" ] && printf '%s' "$MODEL" || printf 'your phone')"
-  else
-    OUT=$("$ADB" install -r "$WORK/app.apk" 2>&1 || true)
-    case "$OUT" in
-      *INSTALL_FAILED_UPDATE_INCOMPATIBLE*|*signatures+do+not+match*|*INSTALL_FAILED_VERSION_DOWNGRADE*)
-        warn "A different build of RelayBird is already installed."
-        say "   Remove it first:  ${B}$ADB uninstall dev.haxzie.relaybird${N}"
-        ;;
-      *)
-        warn "The install did not complete:"
-        printf '%s\n' "$OUT" | sed 's/^/     /'
-        ;;
-    esac
+  # -r keeps existing data, so pairings survive an upgrade. Output is captured once: running
+  # the install again just to read its error would install twice on a slow success.
+  OUT=$("$ADB" -s "$SERIAL" install -r "$WORK/app.apk" 2>&1) && STATUS=0 || STATUS=$?
+
+  if [ "$STATUS" -eq 0 ] && ! printf '%s' "$OUT" | grep -qi 'failure'; then
+    say "   ${G}installed${N}"
     return 0
   fi
+
+  case "$OUT" in
+    *INSTALL_FAILED_UPDATE_INCOMPATIBLE*|*signatures*do*not*match*)
+      warn "A different build of RelayBird is already on that device."
+      say "   Remove it first:  ${B}$ADB -s $SERIAL uninstall dev.haxzie.relaybird${N}"
+      ;;
+    *INSTALL_FAILED_VERSION_DOWNGRADE*)
+      warn "That device already has a newer RelayBird than this release."
+      ;;
+    *INSTALL_FAILED_INSUFFICIENT_STORAGE*)
+      warn "Not enough free space on that device."
+      ;;
+    *)
+      warn "The install did not complete:"
+      printf '%s\n' "$OUT" | sed 's/^/     /'
+      ;;
+  esac
+  return 0
 }
 
 # --- run ---------------------------------------------------------------------
