@@ -5,14 +5,19 @@
  */
 export const ASSETS = 'https://assets.haxzie.com/relaybird'
 
-export type Release = {
-  version: string
-  tag: string
-  publishedAt: string
+export type Asset = {
   platform: string
   filename: string
   url: string
   size: number
+}
+
+export type Release = {
+  version: string
+  tag: string
+  publishedAt: string
+  mac: Asset
+  android: Asset
 }
 
 export async function latestRelease(): Promise<Release | null> {
@@ -24,7 +29,12 @@ export async function latestRelease(): Promise<Release | null> {
     // the repeat traffic anyway.
     const response = await fetch(`${ASSETS}/latest.json`, { cache: 'no-store' })
     if (!response.ok) return null
-    return (await response.json()) as Release
+
+    const body = (await response.json()) as Partial<Release>
+    // A feed missing either half is not a release this site can describe, and rendering a
+    // download button over `undefined` would produce a link to nowhere.
+    if (!body.version || !body.mac?.url || !body.android?.url) return null
+    return body as Release
   } catch {
     // The page still renders without it — a download link pointing nowhere is worse than
     // one that honestly says it is not ready.

@@ -55,20 +55,26 @@ jobs:
           TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          file=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --json assets --jq '.assets[] | select(.name | endswith(".dmg")) | .name' | head -1)
+          assets=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          file=$(echo "$assets" | grep '\.dmg$' | head -1)
+          apk=$(echo "$assets" | grep '\.apk$' | head -1)
           [ -n "$file" ] || { echo "::error::$TAG has no .dmg to mirror"; exit 1; }
+          # The APK is what Android users install; a release missing it is half a release.
+          [ -n "$apk" ] || { echo "::error::$TAG has no .apk to mirror"; exit 1; }
 
           mkdir -p dist
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$file" --dir dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$apk" --dir dist
 
           version="${TAG#v}"
           published=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json publishedAt --jq .publishedAt)
           {
             echo "file=$file"
+            echo "apk=$apk"
             echo "version=$version"
             echo "published_at=$published"
             echo "size=$(stat -f%z "dist/$file")"
+            echo "apk_size=$(stat -f%z "dist/$apk")"
           } >> "$GITHUB_OUTPUT"
 
       # An appcast that points backwards would offer everyone a downgrade, and Sparkle would
@@ -112,20 +118,23 @@ jobs:
           [ -n "$signature" ] || { echo "::error::could not sign the image"; exit 1; }
           echo "signature=$signature" >> "$GITHUB_OUTPUT"
 
-      - name: Upload the disk image
+      - name: Upload the disk image and the APK
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           FILE: ${{ steps.release.outputs.file }}
+          APK: ${{ steps.release.outputs.apk }}
           VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
-          # Immutable: a given version's image never changes, so it can be cached forever.
-          aws s3 cp "dist/$FILE" "s3://$BUCKET/$PREFIX/$VERSION/$FILE" \
-            --endpoint-url "https://$ACCOUNT_ID.r2.cloudflarestorage.com" \
-            --cache-control "public, max-age=31536000, immutable" \
-            --only-show-errors
+          # Immutable: a given version's artefacts never change, so they cache forever.
+          for f in "$FILE" "$APK"; do
+            aws s3 cp "dist/$f" "s3://$BUCKET/$PREFIX/$VERSION/$f" \
+              --endpoint-url "https://$ACCOUNT_ID.r2.cloudflarestorage.com" \
+              --cache-control "public, max-age=31536000, immutable" \
+              --only-show-errors
+          done
 
       - name: Publish the appcast and latest.json
         env:
@@ -133,6 +142,8 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           TAG: ${{ inputs.tag }}
+          APK: ${{ steps.release.outputs.apk }}
+          APK_SIZE: ${{ steps.release.outputs.apk_size }}
           VERSION: ${{ steps.release.outputs.version }}
           FILE: ${{ steps.release.outputs.file }}
           SIZE: ${{ steps.release.outputs.size }}
@@ -166,10 +177,15 @@ jobs:
             echo '</rss>'
           } > appcast.xml
 
+          # Both halves ship from one version, so one feed describes the whole release. The
+          # Android app reads `version` from here too.
+          apk_url="$PUBLIC_URL/$PREFIX/$VERSION/$APK"
           jq -n --arg version "$VERSION" --arg tag "$TAG" --arg publishedAt "$PUBLISHED_AT" \
                 --arg filename "$FILE" --arg url "$url" --argjson size "$SIZE" \
+                --arg apkName "$APK" --arg apkUrl "$apk_url" --argjson apkSize "$APK_SIZE" \
             '{version: $version, tag: $tag, publishedAt: $publishedAt,
-              platform: "darwin-universal", filename: $filename, url: $url, size: $size}' > latest.json
+              mac: {platform: "darwin-universal", filename: $filename, url: $url, size: $size},
+              android: {platform: "android", filename: $apkName, url: $apkUrl, size: $apkSize}}' > latest.json
 
           # Short TTL on the two objects that change: an update nobody can see for an hour is
           # an update that did not ship.
@@ -185,14 +201,17 @@ jobs:
         env:
           VERSION: ${{ steps.release.outputs.version }}
           FILE: ${{ steps.release.outputs.file }}
+          APK: ${{ steps.release.outputs.apk }}
         run: |
           set -euo pipefail
           curl -fsSL "$PUBLIC_URL/$PREFIX/appcast.xml" | grep -q "$VERSION" \
             || { echo "::error::the appcast at $PUBLIC_URL/$PREFIX/appcast.xml does not mention $VERSION"; exit 1; }
-          code=$(curl -sIL -o /dev/null -w '%{http_code}' "$PUBLIC_URL/$PREFIX/$VERSION/$FILE")
-          [ "$code" = "200" ] || {
-            echo "::error::$PUBLIC_URL/$PREFIX/$VERSION/$FILE returned $code."
-            echo "Attach $PUBLIC_URL to the $BUCKET bucket in Cloudflare R2 -> Settings -> Custom Domains."
-            exit 1
-          }
-          echo "published at $PUBLIC_URL/$PREFIX/$VERSION/$FILE"
+          for f in "$FILE" "$APK"; do
+            code=$(curl -sIL -o /dev/null -w '%{http_code}' "$PUBLIC_URL/$PREFIX/$VERSION/$f")
+            [ "$code" = "200" ] || {
+              echo "::error::$PUBLIC_URL/$PREFIX/$VERSION/$f returned $code."
+              echo "Attach $PUBLIC_URL to the $BUCKET bucket in Cloudflare R2 -> Settings -> Custom Domains."
+              exit 1
+            }
+            echo "published at $PUBLIC_URL/$PREFIX/$VERSION/$f"
+          done

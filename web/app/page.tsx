@@ -1,4 +1,10 @@
-import { latestRelease, megabytes } from '@/lib/releases'
+import { AndroidGlyph, AppleGlyph } from '@/components/Glyphs'
+import { Features } from '@/components/Features'
+import { HeroMock } from '@/components/HeroMock'
+import { HowItWorks } from '@/components/HowItWorks'
+import { UseCases } from '@/components/UseCases'
+import { latestRelease, megabytes, type Release } from '@/lib/releases'
+import { REPO } from '@/lib/site'
 
 // Rendered per request. Prerendering this page would pin it to whichever version was current
 // when CI last built the site, so it would keep offering an old DMG after every release until
@@ -9,63 +15,78 @@ export default async function Home() {
   const release = await latestRelease()
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-10 px-6 py-20">
-      <header className="space-y-4">
-        <h1 className="text-4xl font-bold tracking-tight">RelayBird</h1>
-        <p className="text-lg text-muted">
-          Your Android messages, in the macOS menu bar. Over your own Wi-Fi — no account, no
-          cloud, nothing leaving the network.
-        </p>
-      </header>
+    <main>
+      <section className="pt-16 sm:pt-24">
+        <h1 className="text-center text-4xl font-normal leading-[1.1] tracking-tight sm:text-6xl">
+          Your{' '}
+          <AndroidGlyph className="inline-block h-[0.62em] w-auto align-baseline" />{' '}
+          phone&rsquo;s messages
+          <span className="block text-muted">
+            on your <AppleGlyph className="inline-block h-[0.78em] w-auto align-[-0.06em]" />{' '}
+            Mac
+          </span>
+        </h1>
 
-      <section className="rounded-2xl border border-edge bg-surface p-6">
-        {release ? (
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-sm text-muted">Latest release</p>
-              <p className="text-xl font-semibold">{release.version}</p>
-              <p className="text-xs text-muted">
-                {megabytes(release.size)} · {new Date(release.publishedAt).toLocaleDateString()}
-              </p>
-            </div>
-            <a
-              href={release.url}
-              className="rounded-xl bg-white px-5 py-3 font-semibold text-black transition hover:opacity-90"
-            >
-              Download for macOS
-            </a>
-          </div>
-        ) : (
-          <p className="text-muted">No release published yet.</p>
-        )}
-        <p className="mt-4 text-xs text-muted">
-          The phone half is an APK on the{' '}
-          <a className="underline" href="https://github.com/haxzie/relay-bird/releases">
-            releases page
-          </a>
-          . Install both — they are gated against each other by protocol version, so a phone and
-          a Mac from different releases will not pair.
-        </p>
+        <DownloadButtons release={release} className="mt-14 justify-center sm:mt-16" />
+
+        {/* The picture does the explaining: one menu bar, one phone, one network. */}
+        <div className="mt-12 overflow-hidden rounded-2xl border border-edge bg-gradient-to-b from-white/[0.055] to-transparent p-4 sm:mt-16 sm:p-10">
+          <HeroMock />
+        </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-3">
-        {[
-          ['Stays on your network', 'The phone serves over TLS on the LAN and the Mac connects to it. Nothing is relayed through anyone else.'],
-          ['Pairs like WhatsApp Web', 'The Mac shows a QR, the phone scans it once, and every reconnection after that is silent.'],
-          ['Reads, never sends', 'Mirroring only. The Mac cannot send messages from your number.'],
-        ].map(([title, body]) => (
-          <div key={title} className="rounded-xl border border-edge bg-surface p-4">
-            <h2 className="text-sm font-semibold">{title}</h2>
-            <p className="mt-1 text-xs text-muted">{body}</p>
-          </div>
-        ))}
-      </section>
+      <UseCases />
 
-      <footer className="text-xs text-muted">
-        <a className="underline" href="https://github.com/haxzie/relay-bird">Source</a>
-        {' · '}
-        <a className="underline" href="/api/latest">latest.json</a>
-      </footer>
+      <HowItWorks />
+
+      <Features />
+
+      {/* The closing ask, after the case has been made. */}
+      <section className="mt-28 rounded-3xl bg-surface px-6 py-16 text-center sm:px-16 sm:py-20">
+        <h2 className="mx-auto max-w-2xl text-3xl font-normal leading-tight tracking-tight sm:text-5xl">
+          Stop reaching for your phone
+          <span className="block text-muted">to read one line of text</span>
+        </h2>
+        <p className="mx-auto mt-6 max-w-xl text-sm leading-relaxed text-muted">
+          Every code, every delivery notice, every message worth a glance — on the Mac that is
+          already in front of you, over the Wi-Fi you are already on.
+        </p>
+        <DownloadButtons release={release} className="mt-10 justify-center" />
+      </section>
     </main>
+  )
+}
+
+/**
+ * Both downloads. The Mac button always goes somewhere: with nothing published yet it points
+ * at the releases page rather than sitting there dead.
+ */
+function DownloadButtons({
+  release,
+  className = '',
+}: {
+  release: Release | null
+  className?: string
+}) {
+  return (
+    <div className={`flex flex-wrap items-center gap-3 ${className}`}>
+      <a
+        href={release?.mac.url ?? `${REPO}/releases`}
+        className="flex items-center gap-2.5 rounded-full bg-[#0A84FF] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#0A84FF]/90"
+      >
+        <AppleGlyph className="h-4 w-auto" />
+        Download for Mac
+        {release && <span className="font-normal text-white/60">{megabytes(release.mac.size)}</span>}
+      </a>
+      <a
+        href={release?.android.url ?? `${REPO}/releases`}
+        className="flex items-center gap-2.5 rounded-full border border-white/30 px-6 py-3 text-sm font-semibold text-white transition hover:border-white/60 hover:bg-white/5"
+      >
+        {/* The robot in Android green, not the Play badge: the APK is not a Play listing,
+            and Google's badge terms expect that badge to link to one. */}
+        <AndroidGlyph className="h-4 w-auto text-[#3DDC84]" />
+        Download for Android
+      </a>
+    </div>
   )
 }
