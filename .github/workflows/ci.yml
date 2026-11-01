@@ -52,6 +52,10 @@ jobs:
   macos:
     name: macOS
     runs-on: macos-15
+    # Must match the release job: Icon Composer icons need Xcode 26's actool.
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+
     steps:
       - uses: actions/checkout@v4
 
