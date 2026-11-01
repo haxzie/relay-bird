@@ -1,7 +1,11 @@
 import type { Metadata } from 'next'
+import { GoogleAnalytics } from '@next/third-parties/google'
+
+import { PostHogAnalytics } from '@/components/Analytics'
 import { DevTools } from '@/components/DevTools'
 import { SiteFooter } from '@/components/SiteFooter'
 import { SiteNav } from '@/components/SiteNav'
+import { GA_ID } from '@/lib/analytics'
 import { SITE_URL } from '@/lib/site'
 import './globals.css'
 
@@ -24,7 +28,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <SiteFooter />
         </div>
+        <PostHogAnalytics />
         <DevTools />
+        {GA_ID && <GoogleAnalytics gaId={GA_ID} />}
       </body>
     </html>
   )

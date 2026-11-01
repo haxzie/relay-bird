@@ -1,4 +1,5 @@
 import { AppleGlyph } from './Glyphs'
+import { TrackedLink } from './TrackedLink'
 import { MacBook } from './HeroMock'
 import { latestRelease, megabytes } from '@/lib/releases'
 import { REPO } from '@/lib/site'
@@ -44,13 +45,15 @@ export async function DownloadCard() {
           ))}
         </ul>
 
-        <a
+        <TrackedLink
           href={release?.mac.url ?? `${REPO}/releases`}
+          event="download_clicked"
+          properties={{ platform: 'mac', placement: 'article_card' }}
           className="mt-5 flex items-center justify-center gap-2.5 rounded-full bg-[#0A84FF] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0A84FF]/90"
         >
           <AppleGlyph className="h-4 w-auto" />
           Download for Mac
-        </a>
+        </TrackedLink>
 
         <p className="mt-3 text-center text-xs text-muted">
           {release ? `Free and open source · ${megabytes(release.mac.size)}` : 'Free and open source'}

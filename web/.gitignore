@@ -1,5 +1,6 @@
 # Next.js build output and local env files.
 .next/
+.next-dev/
 out/
 next-env.d.ts
 .env*.local

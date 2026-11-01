@@ -18,6 +18,9 @@ final class BridgeClient: ObservableObject {
     }
 
     @Published private(set) var state: State = .unpaired
+
+    /// Distinguishes the first connection of a launch from the reconnects after it.
+    private var hasConnectedThisLaunch = false
     @Published private(set) var threads: [WireThread] = []
     @Published private(set) var messagesByThread: [Int64: [WireMessage]] = [:]
     @Published private(set) var pairingCode: PairingCode?
@@ -119,6 +122,7 @@ final class BridgeClient: ObservableObject {
     }
 
     func unpair() {
+        Telemetry.shared.send(.phoneForgotten)
         Keychain.clear()
         store.clear()
         phone = nil
@@ -342,6 +346,7 @@ final class BridgeClient: ObservableObject {
             )
             Keychain.save(paired)
             phone = paired
+            Telemetry.shared.send(.phonePaired)
             pairingTimer?.cancel()
             pairingCode = nil
             promote(connection)
@@ -397,7 +402,12 @@ final class BridgeClient: ObservableObject {
         attemptDeadline?.cancel()
         attempts.removeAll { $0 !== connection }
         reconnectDelay = 1
+        let wasConnectedBefore = hasConnectedThisLaunch
+        hasConnectedThisLaunch = true
         state = .connected
+        // `reconnect` separates a fresh pairing or a cold start from the silent reconnects
+        // that happen all day; without it the two are indistinguishable in the numbers.
+        Telemetry.shared.send(.phoneConnected, properties: ["reconnect": wasConnectedBefore])
         initialSyncDone = false
         connection.send(.sync(limit: 50, watermarks: store.watermarks()))
         resetWatchdog()

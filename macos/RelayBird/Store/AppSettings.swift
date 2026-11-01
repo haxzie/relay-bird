@@ -8,6 +8,8 @@ enum AppSettings {
         static let cachedPort = "cachedPort"
         static let manualEndpoint = "manualEndpoint"
         static let notificationsEnabled = "notificationsEnabled"
+        static let analyticsEnabled = "analyticsEnabled"
+        static let installId = "installId"
     }
 
     private static let defaults = UserDefaults.standard
@@ -34,6 +36,27 @@ enum AppSettings {
     static var notificationsEnabled: Bool {
         get { defaults.object(forKey: Key.notificationsEnabled) as? Bool ?? true }
         set { defaults.set(newValue, forKey: Key.notificationsEnabled) }
+    }
+
+    /// Whether anonymous product analytics are sent. See [[Telemetry]] for exactly what that
+    /// covers; it is the only thing in the app that leaves the local network.
+    static var analyticsEnabled: Bool {
+        get { defaults.object(forKey: Key.analyticsEnabled) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.analyticsEnabled) }
+    }
+
+    /// A random identifier for this install, so events can be counted per Mac without
+    /// knowing anything about the Mac. Not derived from hardware or from the paired phone.
+    static var installId: String {
+        if let existing = defaults.string(forKey: Key.installId) { return existing }
+        let fresh = UUID().uuidString
+        defaults.set(fresh, forKey: Key.installId)
+        return fresh
+    }
+
+    /// Replaces the identifier, so prior events cannot be joined to later ones.
+    static func resetInstallId() {
+        defaults.set(UUID().uuidString, forKey: Key.installId)
     }
 
     static var macName: String {

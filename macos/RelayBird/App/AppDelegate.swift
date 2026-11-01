@@ -44,7 +44,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
         )
 
+        Telemetry.shared.send(.appLaunched)
         notifier.onOpenThread = { [weak self] threadId in
+            Telemetry.shared.send(.notificationClicked)
             self?.pendingThreadId = threadId
             self?.showPopover()
         }
