@@ -8,4 +8,1146 @@
   --color-edge: #2e2e2e;
   --color-muted: #a6a6a6;
   --color-live: #3fcf7f;
+  /* macOS draws unread markers in the system accent; blue is its default. */
+  --color-accent: #4c8dff;
+}
+
+/* ---------------------------------------------------------------------------
+   The hero product shot.
+
+   One rule makes the rest of this section work: `.stage-inner` sets its own font
+   size in `cqw`, so 1em is one percent of the stage's width, and every dimension
+   below is written in em. The whole composition then scales as a single unit —
+   no breakpoints, no reflow, no device mock that breaks at an awkward width.
+   The floor keeps text from collapsing to sub-pixel on a narrow phone.
+--------------------------------------------------------------------------- */
+
+.stage {
+  container-type: inline-size;
+  width: 100%;
+}
+
+.stage-inner {
+  position: relative;
+  /* Exactly 1% of the stage, with no floor. A minimum em would buy legibility on a narrow
+     phone at the cost of the invariant this whole section rests on — the mock would grow
+     wider than its container and push the entire page sideways. It is a picture; it shrinks. */
+  font-size: 1cqw;
+  width: 100em;
+  height: 57.5em;
+}
+
+/* --- the MacBook ------------------------------------------------------- */
+
+.mb {
+  position: absolute;
+  top: 0;
+  left: 15em;
+  width: 85em;
+}
+
+/* The lid: aluminium edge, thick bezel, rounded display corners. */
+.mb-lid {
+  position: relative;
+  padding: 0.85em;
+  border-radius: 1.5em;
+  /* Piano black: near-black with just enough of a gradient to read as a lacquered surface
+     rather than a flat fill. The hairline border is what separates it from the page, which
+     is almost the same colour — without it the frame has no edge at all. */
+  background: linear-gradient(168deg, #17171a 0%, #0c0c0e 42%, #070708 100%);
+  border: 0.1em solid rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0 0 0.08em rgba(255, 255, 255, 0.05);
+}
+
+.mb-screen {
+  position: relative;
+  aspect-ratio: 16 / 10.3;
+  /* Published as a variable because the menu bar has to match it by hand: a child with a
+     backdrop-filter is not clipped by an ancestor's border-radius in Chrome, so `overflow:
+     hidden` here does not round the menu bar's corners and it pokes square out of the
+     screen's curve. Custom properties inherit, so the bar picks this up per variant. */
+  --screen-radius: 1.1em;
+  border-radius: var(--screen-radius);
+  overflow: hidden;
+  background: #0a0a0b;
+}
+
+/* Every MacBook since 2021 interrupts its own menu bar. */
+.mb-notch {
+  position: absolute;
+  top: 0.85em;
+  left: 50%;
+  translate: -50% 0;
+  width: 11.5em;
+  height: 1.7em;
+  border-radius: 0 0 0.55em 0.55em;
+  background: #0c0c0e;
+  z-index: 10;
+}
+
+/* The hinge sits proud of the lid, and the front edge dips where you open it. */
+.mb-base {
+  position: relative;
+  width: 112%;
+  margin-left: -6%;
+  height: 1.35em;
+  border-radius: 0 0 0.7em 0.7em;
+  background: linear-gradient(#1c1c20 0%, #101013 45%, #060607 100%);
+  border: 0.1em solid rgba(255, 255, 255, 0.14);
+  border-top: 0;
+}
+
+.mb-dip {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  translate: -50% 0;
+  width: 11em;
+  height: 0.5em;
+  border-radius: 0 0 0.5em 0.5em;
+  background: #000;
+}
+
+/* --- the menu bar ------------------------------------------------------- */
+
+.menubar {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 1.3em;
+  height: 2.2em;
+  padding: 0 1.1em;
+  font-size: 1.05em;
+  color: rgba(255, 255, 255, 0.92);
+  /* No fill: the desktop already spans the full screen (inset: 0), so dropping the bar's own
+     background lets the wallpaper run under it. The blur stays, which is what gives macOS's
+     menu bar its frosted look over whatever is behind it. */
+  background: transparent;
+  backdrop-filter: blur(0.6em);
+  border-radius: var(--screen-radius) var(--screen-radius) 0 0;
+}
+
+.menu-app {
+  font-weight: 600;
+  color: #fff;
+}
+
+.menu-item {
+  white-space: nowrap;
+}
+
+/* Pushed past the notch, which overlays the middle of the bar. */
+.menu-right {
+  display: flex;
+  align-items: center;
+  gap: 1.1em;
+  margin-left: auto;
+}
+
+/* Just the mark, like every other item in the tray — no highlight box. */
+.menu-active {
+  display: grid;
+  place-items: center;
+}
+
+.menu-mark {
+  width: 1.2em;
+  height: 1.2em;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.menu-glyph {
+  width: 1.15em;
+  height: 1.15em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Wider than it is tall, unlike the square glyphs beside it. */
+.menu-glyph-battery {
+  width: 1.9em;
+  height: 1.05em;
+}
+
+.menu-clock {
+  white-space: nowrap;
+  color: #fff;
+}
+
+/* --- the desktop and dock ----------------------------------------------- */
+
+.mb-desktop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #04060f;
+  overflow: hidden;
+}
+
+.wallpaper {
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* The crop is already the screen's aspect; cover guards against rounding either way. */
+  object-fit: cover;
+}
+
+/* Behind the notification stack the wallpaper is scenery, not the subject — at full
+   strength it competed with the banners sitting on top of it. */
+.stage-notify .wallpaper {
+  opacity: 0.55;
+}
+
+/* A menu bar alone leaves the desktop reading as an empty rectangle; this is the element
+   that says "Mac" at a glance. */
+.dock {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 0.9em;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  padding: 0.5em 0.7em;
+  border-radius: 1.1em;
+  background: rgba(255, 255, 255, 0.11);
+  border: 0.1em solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(1em);
+}
+
+.dock-tile {
+  display: grid;
+  place-items: center;
+  width: 2.7em;
+  height: 2.7em;
+  border-radius: 0.72em;
+  /* Each icon paints its own background, so the tile only clips and lifts it. */
+  overflow: hidden;
+  box-shadow: 0 0.1em 0.3em rgba(0, 0, 0, 0.45);
+}
+
+.dock-tile > svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Our own tile is a mark on white, not full-bleed artwork, so it keeps its inset. Needs to
+   out-specify the rule above, which would otherwise stretch it to the edges. */
+.dock-tile > .dock-mark {
+  width: 1.7em;
+  height: 1.7em;
+}
+
+.dock-divider {
+  width: 0.1em;
+  height: 2.4em;
+  background: rgba(255, 255, 255, 0.22);
+  margin: 0 0.15em;
+}
+
+.dock-app {
+  position: relative;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: #000;
+}
+
+.dock-mark {
+  width: 1.7em;
+  height: 1.7em;
+}
+
+/* The dot macOS puts under a running app. */
+.dock-running {
+  position: absolute;
+  bottom: -0.45em;
+  left: 50%;
+  translate: -50% 0;
+  width: 0.3em;
+  height: 0.3em;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* --- the panel ---------------------------------------------------------- */
+
+/* Hangs from the menu bar under the feather, where the real popover appears. */
+.panel {
+  position: absolute;
+  z-index: 3;
+  top: 2.6em;
+  right: 1.1em;
+  width: 32em;
+  border-radius: 1em;
+  border: 0.1em solid rgba(255, 255, 255, 0.14);
+  /* Frosted, like the real popover: the wallpaper reads through it, saturated the way macOS
+     saturates what is behind its materials rather than just blurring it. */
+  background: rgba(26, 26, 30, 0.62);
+  backdrop-filter: blur(2.2em) saturate(1.6);
+  box-shadow: 0 2em 4em rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.panel-arrow {
+  position: absolute;
+  top: -0.45em;
+  right: 7.4em;
+  width: 0.9em;
+  height: 0.9em;
+  rotate: 45deg;
+  background: rgba(26, 26, 30, 0.62);
+  border-left: 0.1em solid rgba(255, 255, 255, 0.14);
+  border-top: 0.1em solid rgba(255, 255, 255, 0.14);
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  padding: 1.1em 1.2em;
+  border-bottom: 0.1em solid rgba(255, 255, 255, 0.08);
+  font-size: 1.25em;
+}
+
+.panel-mark {
+  width: 1.2em;
+  height: 1.2em;
+  color: #fff;
+}
+
+.panel-title {
+  font-weight: 600;
+}
+
+.panel-spacer {
+  flex: 1;
+}
+
+.panel-unread {
+  color: var(--color-muted);
+  font-size: 0.82em;
+}
+
+.panel-checks {
+  width: 1.15em;
+  height: 1.15em;
+  color: var(--color-accent);
+}
+
+.panel-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  gap: 0.75em;
+  padding: 0.95em 1.3em;
+  border-bottom: 0.1em solid rgba(255, 255, 255, 0.055);
+}
+
+.row-dot {
+  margin-top: 0.5em;
+  width: 0.62em;
+  height: 0.62em;
+  flex: none;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.row-dot-on {
+  background: var(--color-accent);
+}
+
+.row-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.row-top {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+}
+
+.row-from {
+  font-size: 1.15em;
+  color: #fff;
+}
+
+.row-from-unread {
+  font-weight: 600;
+}
+
+.row-time {
+  margin-left: auto;
+  flex: none;
+  font-size: 0.92em;
+  color: #6f6f6f;
+}
+
+.row-snippet {
+  margin-top: 0.15em;
+  font-size: 1.02em;
+  line-height: 1.35;
+  color: var(--color-muted);
+  /* Two lines, like the real row, so a long OTP message does not stretch the panel. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.panel-status {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.9em 1.3em;
+  font-size: 1em;
+  color: var(--color-muted);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.live-dot {
+  width: 0.6em;
+  height: 0.6em;
+  flex: none;
+  border-radius: 999px;
+  background: var(--color-live);
+}
+
+/* --- the phone ---------------------------------------------------------- */
+
+/* In front of the Mac and overlapping it, which is the whole point of the picture:
+   these two are one thing. */
+.phone {
+  position: absolute;
+  left: 6em;
+  top: 14em;
+  width: 20.5em;
+  height: 37.5em;
+  z-index: 1;
+  border-radius: 3em;
+  padding: 0.55em;
+  background: #202020;
+  box-shadow:
+    0 0 0 0.1em #333,
+    0 2.5em 5em rgba(0, 0, 0, 0.8);
+}
+
+.phone-screen {
+  position: relative;
+  height: 100%;
+  border-radius: 2.55em;
+  background: #000;
+  padding: 0 1.3em 1.3em;
+  overflow: hidden;
+}
+
+/* Clock left, radios right: the single clearest tell that this is Android and not iOS. */
+.phone-statusbar {
+  display: flex;
+  align-items: center;
+  height: 2.9em;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.phone-clock {
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
+.phone-status-icons {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  margin-left: auto;
+}
+
+.phone-status-signal {
+  width: 0.8em;
+  height: 0.6em;
+}
+
+.phone-status-glyph {
+  width: 0.75em;
+  height: 0.75em;
+}
+
+.phone-status-battery {
+  width: 1.15em;
+  height: 0.62em;
+}
+
+.phone-lens {
+  position: absolute;
+  top: 1.05em;
+  left: 50%;
+  translate: -50% 0;
+  width: 0.8em;
+  height: 0.8em;
+  border-radius: 999px;
+  background: #1b1b1b;
+}
+
+.phone-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 1.15em;
+  font-weight: 600;
+  color: #fff;
+}
+
+.phone-mark {
+  width: 1.1em;
+  height: 1.1em;
+}
+
+.phone-card {
+  margin-top: 1.2em;
+  padding: 1.2em 1em;
+  border-radius: 1.2em;
+  background: #141414;
+  border: 0.1em solid #242424;
+  text-align: center;
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+}
+
+.link-tile {
+  display: grid;
+  place-items: center;
+  width: 2.6em;
+  height: 2.6em;
+  border-radius: 0.6em;
+  background: #202020;
+  border: 0.1em solid #2f2f2f;
+}
+
+.link-icon {
+  width: 1.3em;
+  height: 1.3em;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.link-dots {
+  display: flex;
+  gap: 0.35em;
+}
+
+.link-dots i {
+  width: 0.35em;
+  height: 0.35em;
+  border-radius: 999px;
+  background: var(--color-live);
+}
+
+.phone-card-title {
+  margin-top: 1em;
+  font-size: 1.05em;
+  font-weight: 600;
+  color: #fff;
+}
+
+.phone-card-sub {
+  margin-top: 0.15em;
+  font-size: 0.85em;
+  color: var(--color-live);
+}
+
+/* White on black: the Android app's button style. */
+.phone-button {
+  margin-top: 1.1em;
+  padding: 0.65em 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+.phone-label {
+  margin-top: 1.4em;
+  font-size: 0.7em;
+  letter-spacing: 0.12em;
+  color: #6f6f6f;
+}
+
+.phone-device {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-top: 0.6em;
+  padding: 0.85em 1em;
+  border-radius: 0.9em;
+  background: #141414;
+  border: 0.1em solid #242424;
+}
+
+.phone-device-name {
+  flex: 1;
+  font-size: 0.9em;
+  color: #fff;
+}
+
+.phone-device-seen {
+  font-size: 0.8em;
+  color: #6f6f6f;
+}
+
+/* The gesture bar, which is what the bottom of an Android screen actually ends in. */
+.phone-home {
+  position: absolute;
+  left: 50%;
+  bottom: 0.7em;
+  translate: -50% 0;
+  width: 6.5em;
+  height: 0.3em;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ---------------------------------------------------------------------------
+   How it works — four looping illustrations.
+
+   Same trick as the hero: the scene sets its own font size in cqw, so every
+   dimension in em is a percentage of the card and the whole thing scales with
+   the grid. All motion is CSS, so this section ships no JavaScript.
+--------------------------------------------------------------------------- */
+
+.art {
+  container-type: inline-size;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 0.85rem;
+  background:
+    radial-gradient(70% 70% at 50% 0%, rgba(255, 255, 255, 0.07), transparent 70%),
+    #0c0c0d;
+  border: 1px solid var(--color-edge);
+}
+
+.art-inner {
+  position: relative;
+  font-size: 1cqw;
+  width: 100em;
+  height: 62em;
+}
+
+/* --- shared device shapes ---------------------------------------------- */
+
+.dev-mac,
+.dev-phone {
+  position: absolute;
+  left: 50%;
+  bottom: 9em;
+  translate: -50% 0;
+}
+
+.dev-mac-screen {
+  display: grid;
+  place-items: center;
+  width: 46em;
+  height: 29em;
+  margin: 0 auto;
+  border-radius: 2.2em;
+  border: 1.4em solid #2b2b30;
+  background: #121214;
+}
+
+.dev-mac-base {
+  display: block;
+  width: 58em;
+  height: 1.6em;
+  margin: 0.8em auto 0;
+  border-radius: 0 0 0.8em 0.8em;
+  background: #2b2b30;
+}
+
+.dev-phone-screen {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 19em;
+  height: 32em;
+  border-radius: 2.8em;
+  border: 1.4em solid #2b2b30;
+  background: #121214;
+}
+
+/* Without a camera the rounded rect with a bar across it just reads as a battery. */
+.dev-phone-screen::after {
+  content: '';
+  position: absolute;
+  top: 2em;
+  left: 50%;
+  translate: -50% 0;
+  width: 1.7em;
+  height: 1.7em;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* The progress bar inside whichever device is being installed to. */
+.bar {
+  display: block;
+  width: 60%;
+  height: 2.2em;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #fff;
+  animation: fill 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes fill {
+  0%, 12% { width: 0; }
+  70%, 100% { width: 100%; }
+}
+
+/* The thing being downloaded, falling in. */
+.drop {
+  position: absolute;
+  left: 50%;
+  top: 4em;
+  translate: -50% 0;
+  display: grid;
+  place-items: center;
+  width: 13em;
+  height: 13em;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  animation: drop 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.drop-glyph {
+  width: 7em;
+  height: auto;
+}
+
+@keyframes drop {
+  0% { transform: translateY(-6em) scale(0.7); opacity: 0; }
+  22% { transform: translateY(0) scale(1); opacity: 1; }
+  62% { transform: translateY(0) scale(1); opacity: 1; }
+  80%, 100% { transform: translateY(5em) scale(0.6); opacity: 0; }
+}
+
+/* --- step 3: scanning the code ----------------------------------------- */
+
+.qr {
+  position: absolute;
+  left: 50%;
+  top: 8em;
+  translate: -50% 0;
+  width: 33em;
+  height: 33em;
+  border-radius: 1em;
+}
+
+.scanline {
+  position: absolute;
+  left: 50%;
+  top: 8em;
+  translate: -50% 0;
+  width: 38em;
+  height: 0.6em;
+  border-radius: 999px;
+  background: var(--color-live);
+  box-shadow: 0 0 2.5em 0.4em rgba(63, 207, 127, 0.55);
+  animation: sweep 3s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  0%, 100% { transform: translateY(0); opacity: 0; }
+  12% { opacity: 1; }
+  55% { transform: translateY(32em); opacity: 1; }
+  70% { transform: translateY(32em); opacity: 0; }
+}
+
+/* Viewfinder corners, which is what makes it read as scanning rather than displaying. */
+.bracket {
+  position: absolute;
+  width: 5em;
+  height: 5em;
+  border: 0.7em solid rgba(255, 255, 255, 0.45);
+}
+
+.bracket-tl { left: 29em; top: 6em; border-right: 0; border-bottom: 0; border-radius: 1.2em 0 0 0; }
+.bracket-tr { right: 29em; top: 6em; border-left: 0; border-bottom: 0; border-radius: 0 1.2em 0 0; }
+.bracket-bl { left: 29em; top: 37em; border-right: 0; border-top: 0; border-radius: 0 0 0 1.2em; }
+.bracket-br { right: 29em; top: 37em; border-left: 0; border-top: 0; border-radius: 0 0 1.2em 0; }
+
+/* The payoff: the two devices joined, appearing as the sweep completes. */
+.paired {
+  position: absolute;
+  left: 50%;
+  bottom: 3.5em;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 1.6em;
+  color: var(--color-live);
+  animation: paired 3s ease-in-out infinite;
+}
+
+.paired-glyph {
+  width: 6em;
+  height: 6em;
+}
+
+.paired-link {
+  width: 6em;
+  height: 0.5em;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+@keyframes paired {
+  0%, 55% { opacity: 0; transform: translateY(1.5em); }
+  70%, 92% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(0); }
+}
+
+/* --- step 4: the inbox and a new banner --------------------------------- */
+
+.threads {
+  position: absolute;
+  left: 9em;
+  right: 9em;
+  bottom: 7em;
+  display: flex;
+  flex-direction: column;
+  gap: 3.4em;
+}
+
+.thread {
+  display: flex;
+  align-items: center;
+  gap: 2.2em;
+}
+
+.thread-dot {
+  width: 3em;
+  height: 3em;
+  flex: none;
+  border-radius: 999px;
+  background: var(--color-accent);
+  animation: pulse 3s ease-in-out infinite;
+}
+
+.thread-line {
+  flex: 1;
+  height: 2.4em;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.11);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+.notif {
+  position: absolute;
+  left: 9em;
+  right: 9em;
+  top: 6em;
+  display: flex;
+  align-items: center;
+  gap: 2.4em;
+  padding: 3.2em 3em;
+  border-radius: 2.2em;
+  background: rgba(38, 38, 42, 0.96);
+  border: 0.4em solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 2em 4em rgba(0, 0, 0, 0.6);
+  animation: banner 3s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.notif-mark {
+  width: 6em;
+  height: 6em;
+  flex: none;
+  color: #fff;
+}
+
+.notif-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 1.8em;
+  flex: 1;
+}
+
+.notif-lines i {
+  height: 2.2em;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.notif-lines i:last-child {
+  width: 60%;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+@keyframes banner {
+  0% { transform: translateY(-9em); opacity: 0; }
+  18%, 72% { transform: translateY(0); opacity: 1; }
+  90%, 100% { transform: translateY(-9em); opacity: 0; }
+}
+
+/* Asked for stillness, given stillness — the scenes still read as diagrams. */
+@media (prefers-reduced-motion: reduce) {
+  .art-inner *,
+  .art-inner {
+    animation: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The same two devices inside a bento tile.
+
+   Everything in the hero is sized in em over a cqw root, so reusing those
+   components inside a smaller container reproduces the whole composition at
+   whatever size the tile happens to be. These overrides only move the two
+   devices closer together and start them higher, so the content worth seeing
+   sits above the tile's bottom edge — the frames are what get cut, not the
+   rows inside them.
+--------------------------------------------------------------------------- */
+
+.stage-tile .mb {
+  left: 19em;
+  width: 81em;
+}
+
+.stage-tile .phone {
+  left: 0;
+  top: 3em;
+  width: 22em;
+  height: 46em;
+}
+
+/* The dock sits far below the crop line; drawing it only adds weight. */
+.stage-tile .dock {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   A MacBook behind the notification stack.
+
+   Wider than the tile and anchored to its right edge, so the frame runs off the
+   left and the bottom and the banners sit where macOS actually puts them — the
+   top-right of the screen. The popover is hidden here; two pieces of RelayBird
+   UI in one tile would be competing for the same attention.
+--------------------------------------------------------------------------- */
+
+.stage-notify .mb {
+  left: -38em;
+  top: 0;
+  width: 138em;
+}
+
+.stage-notify .panel,
+.stage-notify .dock {
+  display: none;
+}
+
+.stage-notify .mb-lid {
+  border-radius: 4.5em;
+  padding: 1.2em;
+}
+
+.stage-notify .mb-screen {
+  --screen-radius: 3.4em;
+}
+
+/* ---------------------------------------------------------------------------
+   Long-form copy: blog posts and the about page.
+
+   Written by hand rather than pulling in @tailwindcss/typography, whose defaults
+   are built for light backgrounds and would need overriding at almost every
+   selector to sit on this one.
+--------------------------------------------------------------------------- */
+
+.prose {
+  color: var(--color-muted);
+  font-size: 0.975rem;
+  line-height: 1.75;
+}
+
+.prose > * + * {
+  margin-top: 1.25em;
+}
+
+.prose h2 {
+  margin-top: 2.5em;
+  color: #fff;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.prose h2 + * {
+  margin-top: 0.85em;
+}
+
+.prose strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.prose a {
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--color-edge);
+  transition: text-decoration-color 0.15s;
+}
+
+.prose a:hover {
+  text-decoration-color: #fff;
+}
+
+.prose ul {
+  padding-left: 1.15em;
+  list-style: disc;
+}
+
+.prose li + li {
+  margin-top: 0.6em;
+}
+
+.prose li::marker {
+  color: #4a4a4a;
+}
+
+.prose code {
+  border-radius: 0.3em;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.15em 0.4em;
+  font-size: 0.875em;
+  color: #fff;
+}
+
+/* Comparison tables in long-form posts. */
+.prose table {
+  width: 100%;
+  margin-top: 1.75em;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.prose th {
+  border-bottom: 1px solid var(--color-edge);
+  padding: 0.6em 0.9em 0.6em 0;
+  text-align: left;
+  font-weight: 600;
+  color: #fff;
+}
+
+.prose td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 0.7em 0.9em 0.7em 0;
+  vertical-align: top;
+}
+
+/* The row labels, not the first row — highlighting that implied a ranking that is not there. */
+.prose tbody td:first-child {
+  color: #fff;
+}
+
+/* Anchored headings land under the sticky contents list without the jump-to hiding them. */
+.prose h2[id] {
+  scroll-margin-top: 2.5rem;
+}
+
+/* ---------------------------------------------------------------------------
+   The Mac as a card thumbnail.
+
+   Wider than the card and anchored left, so the frame runs off the right edge
+   and the crop reads as a screenshot rather than a shrunken device.
+--------------------------------------------------------------------------- */
+
+.stage-card .mb {
+  left: 4em;
+  top: 3em;
+  width: 104em;
+}
+
+.stage-card .dock {
+  display: none;
+}
+
+/* The pairing window, shown on the Mac's screen in place of the popover. */
+.pair-window {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 34em;
+  padding: 3em 3em 2.4em;
+  border-radius: 1.4em;
+  border: 0.1em solid rgba(255, 255, 255, 0.14);
+  background: rgba(26, 26, 30, 0.72);
+  backdrop-filter: blur(2.2em) saturate(1.6);
+  box-shadow: 0 2em 4em rgba(0, 0, 0, 0.6);
+}
+
+.pair-mark {
+  width: 3em;
+  height: 3em;
+  color: #fff;
+}
+
+.pair-title {
+  margin-top: 1.1em;
+  font-size: 1.6em;
+  font-weight: 600;
+}
+
+.pair-sub {
+  margin-top: 0.4em;
+  font-size: 1em;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.pair-qr {
+  width: 15em;
+  height: 15em;
+  margin-top: 1.6em;
+  border-radius: 0.8em;
+}
+
+.pair-foot {
+  margin-top: 1.2em;
+  font-size: 0.95em;
+  color: var(--color-muted);
+}
+
+/* Images in posts: full column width, rounded, with the same hairline as other surfaces. */
+.prose img {
+  width: 100%;
+  height: auto;
+  margin-top: 2em;
+  border-radius: 0.85rem;
+  border: 1px solid var(--color-edge);
+  background: #0c0c0d;
 }

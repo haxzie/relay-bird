@@ -2,6 +2,7 @@ package dev.haxzie.relaybird.ui
 
 import android.Manifest
 import android.content.Context
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -51,6 +52,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,6 +73,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.haxzie.relaybird.R
 import dev.haxzie.relaybird.service.BridgeContainer
 import dev.haxzie.relaybird.service.BridgeService
+import dev.haxzie.relaybird.update.UpdateChecker
 import java.text.DateFormat
 import java.util.Date
 
@@ -91,6 +94,11 @@ fun HomeScreen(container: BridgeContainer, onPairMac: () -> Unit) {
     val devices by container.devices.devices.collectAsState()
     val connected by container.server.connected.collectAsState()
     val lastError by container.lastError.collectAsState()
+    val update by container.updates.available.collectAsState()
+
+    // Cheap and throttled to once every six hours inside the checker, so running it on every
+    // appearance costs a flag read almost always.
+    LaunchedEffect(Unit) { container.updates.checkIfDue() }
 
     var missingPermissions by remember { mutableStateOf(missingPermissions(context)) }
     var batteryExempt by remember { mutableStateOf(isBatteryExempt(context)) }
@@ -149,6 +157,14 @@ fun HomeScreen(container: BridgeContainer, onPairMac: () -> Unit) {
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium,
                 )
+            }
+
+            update?.let { newer ->
+                SetupCard(
+                    title = "Version ${newer.version} is available",
+                    body = "RelayBird is installed from a signed APK, so it does not update itself. Open the releases page to download the new version.",
+                    action = "Open releases",
+                ) { context.openUrl(UpdateChecker.RELEASES_URL) }
             }
 
             if (missingPermissions.isNotEmpty()) {
@@ -528,3 +544,12 @@ private fun Context.requestBatteryExemption() {
 
 private fun formatTime(epochMillis: Long): String =
     DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(epochMillis))
+
+/** Opens a URL in the browser; a missing browser is not worth crashing over. */
+private fun Context.openUrl(url: String) {
+    try {
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (_: ActivityNotFoundException) {
+        // No browser installed. Nothing useful to fall back to.
+    }
+}

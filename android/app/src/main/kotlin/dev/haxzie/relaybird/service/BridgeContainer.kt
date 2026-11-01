@@ -8,6 +8,7 @@ import dev.haxzie.relaybird.sms.ContactNames
 import dev.haxzie.relaybird.sms.SmsRepository
 import dev.haxzie.relaybird.store.PairedDevices
 import dev.haxzie.relaybird.store.PendingPairingStore
+import dev.haxzie.relaybird.update.UpdateChecker
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
@@ -54,4 +55,7 @@ class BridgeContainer(private val context: Context) {
 
     /** Last error surfaced by the service, shown on the home screen. */
     val lastError = MutableStateFlow<String?>(null)
+
+    /** Notices a newer release; it never installs anything. */
+    val updates = UpdateChecker(context)
 }
