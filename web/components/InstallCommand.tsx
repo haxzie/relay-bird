@@ -25,8 +25,8 @@ export function InstallCommand() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="flex items-center gap-3 rounded-xl bg-surface px-4 py-3 text-left">
+    <div>
+      <div className="flex items-center gap-3 rounded-xl bg-raised px-4 py-3 text-left">
         <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-[13px] text-white">
           <span className="select-none text-muted">$ </span>
           {COMMAND}
@@ -38,10 +38,6 @@ export function InstallCommand() {
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
-      <p className="mt-3 text-xs text-muted">
-        Installs both halves at the matching version. The phone half goes on over ADB, which
-        is the only way Android allows an app that reads SMS to be installed.
-      </p>
     </div>
   )
 }
