@@ -1,16 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
-import { AndroidGlyph, AppleGlyph } from '@/components/Glyphs'
 import { InstallCommand } from '@/components/InstallCommand'
-import { TrackedLink } from '@/components/TrackedLink'
 import { latestRelease, megabytes, type Release } from '@/lib/releases'
 import { REPO } from '@/lib/site'
 
 export const metadata: Metadata = {
   title: 'Download RelayBird — Mac and Android',
   description:
-    'Download RelayBird for macOS and Android. Read your phone’s text messages from the Mac menu bar, over your own Wi-Fi.',
+    'Install RelayBird on your Mac and Android phone with one command. Read your phone’s text messages from the Mac menu bar, over your own Wi-Fi.',
   alternates: { canonical: '/download' },
 }
 
@@ -33,13 +31,9 @@ export default async function Download() {
     <main className="pt-16 sm:pt-24">
       <div className="text-center">
         <h1 className="text-4xl font-normal tracking-tight sm:text-5xl">
-          Download RelayBird
-          <span className="block text-muted">both halves, one version</span>
+          Install RelayBird
+          <span className="block text-muted">one command, both halves</span>
         </h1>
-        <p className="mx-auto mt-6 max-w-xl text-sm leading-relaxed text-muted">
-          Install both. They are gated against each other by protocol version, so a phone and
-          a Mac from different releases will refuse to pair rather than misbehave.
-        </p>
         {release && (
           <p className="mt-6 inline-flex items-center gap-2 rounded-full border border-edge px-3 py-1 text-xs text-muted">
             <span className="h-1.5 w-1.5 rounded-full bg-live" />
@@ -48,127 +42,137 @@ export default async function Download() {
         )}
       </div>
 
-      <div className="mt-12">
+      <div className="mx-auto mt-12 max-w-2xl rounded-2xl bg-surface p-6 sm:p-8">
         <InstallCommand />
+        <p className="mt-4 text-sm leading-relaxed text-muted">
+          Run this on your Mac. It installs the menu-bar app, then installs the Android app
+          onto your phone over a USB cable. Both halves come from the same release, which
+          matters: they refuse to pair across versions.
+        </p>
+
+        <div className="mt-8 border-t border-edge pt-8">
+          <p className="text-xs uppercase tracking-[0.14em] text-muted">Before you run it</p>
+
+          <ol className="mt-6 space-y-7">
+            <Step n={1} title="Install ADB on your Mac">
+              <p>
+                The Android half has to go on over the Android debug bridge. This is not a
+                preference: Play Protect blocks any app that reads SMS when it is installed
+                from a browser, so tapping the APK on the phone does not work.
+              </p>
+              <Code>brew install --cask android-platform-tools</Code>
+              <p className="text-xs">
+                No Homebrew?{' '}
+                <a
+                  className="underline underline-offset-4"
+                  href="https://developer.android.com/tools/releases/platform-tools"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Download platform-tools from Google
+                </a>{' '}
+                and add it to your PATH.
+              </p>
+            </Step>
+
+            <Step n={2} title="Turn on Developer options">
+              <p>
+                On the phone: <B>Settings</B> → <B>About phone</B> → tap <B>Build number</B>{' '}
+                seven times. It will tell you when you are a developer.
+              </p>
+            </Step>
+
+            <Step n={3} title="Turn on USB debugging">
+              <p>
+                <B>Settings</B> → <B>System</B> → <B>Developer options</B> → turn on{' '}
+                <B>USB debugging</B>. On some phones Developer options sits directly in
+                Settings rather than under System.
+              </p>
+            </Step>
+
+            <Step n={4} title="Plug the phone into the Mac">
+              <p>
+                Use a cable that carries data — plenty of charging cables do not. The phone
+                will ask whether to allow USB debugging from this computer; tap <B>Allow</B>,
+                and tick <B>Always allow</B> so it stops asking.
+              </p>
+            </Step>
+          </ol>
+        </div>
+
+        <div className="mt-8 flex flex-wrap gap-x-6 gap-y-1 border-t border-edge pt-6 text-xs text-muted">
+          <span>macOS 14 or later</span>
+          <span>Android 8.0 or later</span>
+          <span>Both on the same Wi-Fi</span>
+          {release && (
+            <span className="ml-auto">
+              {megabytes(release.mac.size)} + {megabytes(release.android.size)}
+            </span>
+          )}
+        </div>
       </div>
 
-      <p className="mt-14 text-center text-xs uppercase tracking-[0.14em] text-muted">
-        or install each half yourself
-      </p>
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        <Platform
-          name="macOS"
-          glyph={<AppleGlyph className="h-6 w-auto" />}
-          requirement="macOS 14 Sonoma or later · Apple silicon and Intel"
-          detail={
-            release
-              ? `${release.mac.filename} · ${megabytes(release.mac.size)}`
-              : 'No release published yet'
-          }
-          href={release?.mac.url ?? `${REPO}/releases`}
-          cta="Download for Mac"
-          tone="mac"
-          notes={[
-            'Signed and notarised, so it opens without a Gatekeeper warning',
-            'Lives in the menu bar — no Dock icon, no window',
-            'Updates itself from here on',
-          ]}
-        />
-
-        <Platform
-          name="Android"
-          glyph={<AndroidGlyph className="h-6 w-auto text-[#3DDC84]" />}
-          requirement="Android 8.0 Oreo or later"
-          detail={
-            release
-              ? `${release.android.filename} · ${megabytes(release.android.size)}`
-              : 'No release published yet'
-          }
-          href={release?.android.url ?? `${REPO}/releases`}
-          cta="Download for Android"
-          tone="android"
-          notes={[
-            'Not on Google Play: Play restricts SMS permissions to default SMS apps',
-            'Play Protect blocks SMS apps installed from a browser — install over ADB',
-            'The app tells you when a new version is out',
-          ]}
-        />
+      <div className="mx-auto mt-8 max-w-2xl space-y-2 text-center text-xs text-muted">
+        <p>
+          No cable to hand?{' '}
+          <Link className="underline underline-offset-4" href="/blog/android-play-protect-blocked">
+            The other ways to install, and why Android blocks this one
+          </Link>
+          .
+        </p>
+        <p>
+          Prefer the files directly?{' '}
+          <DirectLinks release={release} />
+        </p>
       </div>
-
-      <p className="mt-6 text-center text-xs text-muted">
-        Android blocks sideloaded apps that read SMS.{' '}
-        <Link className="underline underline-offset-4" href="''' + GUIDE + '''">
-          Here is why, and how to install anyway
-        </Link>
-        .
-      </p>
-
-      <p className="mt-3 text-center text-xs text-muted">
-        Both devices must be on the same Wi-Fi network.{' '}
-        <Link className="underline underline-offset-4" href="/blog/how-to-view-android-sms-on-mac">
-          Setup takes about five minutes
-        </Link>
-        .
-      </p>
     </main>
   )
 }
 
-function Platform({
-  name,
-  glyph,
-  requirement,
-  detail,
-  href,
-  cta,
-  notes,
-  tone,
-}: {
-  name: string
-  glyph: React.ReactNode
-  requirement: string
-  detail: string
-  href: string
-  cta: string
-  notes: string[]
-  tone: 'mac' | 'android'
-}) {
-  // Each platform's own colour. Both take black or white text at a comfortable contrast,
-  // so the label is set per tone rather than assumed.
-  const button =
-    tone === 'mac'
-      ? 'bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90'
-      : 'bg-[#3DDC84] text-black hover:bg-[#3DDC84]/90'
+function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col rounded-2xl bg-surface p-7">
-      <div className="flex items-center gap-3">
-        {glyph}
-        <span className="text-lg font-semibold">{name}</span>
+    <li className="flex gap-4">
+      <span className="grid h-6 w-6 flex-none place-items-center rounded-full bg-raised text-xs font-semibold">
+        {n}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold">{title}</p>
+        <div className="mt-2 space-y-3 text-sm leading-relaxed text-muted">{children}</div>
       </div>
-      <p className="mt-2 text-sm text-muted">{requirement}</p>
+    </li>
+  )
+}
 
-      <ul className="mt-6 space-y-2.5">
-        {notes.map((note) => (
-          <li key={note} className="flex gap-2.5 text-sm leading-snug text-muted">
-            <span className="mt-1.5 h-1 w-1 flex-none rounded-full bg-muted/60" />
-            {note}
-          </li>
-        ))}
-      </ul>
+function B({ children }: { children: React.ReactNode }) {
+  return <strong className="font-semibold text-white">{children}</strong>
+}
 
-      {/* Pushed to the bottom so the two cards' buttons line up whatever the copy length. */}
-      <div className="mt-auto pt-7">
-        <TrackedLink
-          href={href}
-          event="download_clicked"
-          properties={{ platform: tone, placement: 'download_page' }}
-          className={`flex items-center justify-center gap-2.5 rounded-full px-6 py-3 text-sm font-semibold transition ${button}`}
-        >
-          {cta}
-        </TrackedLink>
-        <p className="mt-3 text-center text-xs text-muted">{detail}</p>
-      </div>
-    </div>
+function Code({ children }: { children: React.ReactNode }) {
+  return (
+    <code className="block overflow-x-auto rounded-lg bg-raised px-3 py-2 font-mono text-[13px] text-white">
+      {children}
+    </code>
+  )
+}
+
+/** The raw artefacts, for anyone who would rather not run a script. */
+function DirectLinks({ release }: { release: Release | null }) {
+  if (!release) {
+    return (
+      <a className="underline underline-offset-4" href={`${REPO}/releases`}>
+        GitHub releases
+      </a>
+    )
+  }
+  return (
+    <>
+      <a className="underline underline-offset-4" href={release.mac.url}>
+        the disk image
+      </a>{' '}
+      and{' '}
+      <a className="underline underline-offset-4" href={release.android.url}>
+        the APK
+      </a>
+    </>
   )
 }
