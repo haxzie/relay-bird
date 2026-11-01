@@ -119,11 +119,10 @@ jobs:
 
   macos:
     name: macOS app
-    runs-on: macos-15
-    # The app icon is an Icon Composer .icon bundle, which only Xcode 26's actool can
-    # compile. The runner still defaults to Xcode 16.4, which would silently drop it.
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    # The app icon is an Icon Composer .icon bundle. Compiling one needs more than
+    # Xcode 26: actool renders it through the OS's own icon frameworks, so on a macOS 15
+    # runner its asset-catalog agent crashes even with Xcode 26 selected.
+    runs-on: macos-26
 
     steps:
       - uses: actions/checkout@v4
