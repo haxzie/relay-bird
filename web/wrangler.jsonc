@@ -11,16 +11,22 @@
   // Everything Next emits as a static file. The Worker does not run in front of these, so
   // they are served straight from Cloudflare's edge.
   "assets": {
+    // Serve .html at its literal path - see the production copy below.
     "directory": ".open-next/assets",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    "html_handling": "none"
   },
 
   "env": {
     "production": {
       "routes": [{ "pattern": "relaybird.haxzie.com", "custom_domain": true }],
       "assets": {
+        // Serve .html at its literal path. The default, auto-trailing-slash, 307s
+        // /x.html to /x, and Google's Search Console verification file has to answer
+        // at the exact URL it was issued for. It is the only .html we ship.
         "directory": ".open-next/assets",
-        "binding": "ASSETS"
+        "binding": "ASSETS",
+        "html_handling": "none"
       },
       "observability": { "enabled": true }
     }
