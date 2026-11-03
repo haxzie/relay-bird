@@ -18,7 +18,7 @@ final class MessageStore {
 
     private var db: OpaquePointer?
     /// Every statement runs here, so the store is safe to touch from any thread.
-    private let queue = DispatchQueue(label: "dev.haxzie.relaybird.store")
+    private let queue = DispatchQueue(label: "com.haxzie.relaybird.store")
 
     static let `default` = MessageStore(url: MessageStore.defaultURL)
 

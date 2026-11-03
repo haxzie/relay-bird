@@ -335,7 +335,7 @@ install_android() {
   case "$OUT" in
     *INSTALL_FAILED_UPDATE_INCOMPATIBLE*|*signatures*do*not*match*)
       warn "A different build of RelayBird is already on that device."
-      say "   Remove it first:  ${B}$ADB -s $SERIAL uninstall dev.haxzie.relaybird${N}"
+      say "   Remove it first:  ${B}$ADB -s $SERIAL uninstall com.haxzie.relaybird${N}"
       ;;
     *INSTALL_FAILED_VERSION_DOWNGRADE*)
       warn "That device already has a newer RelayBird than this release."

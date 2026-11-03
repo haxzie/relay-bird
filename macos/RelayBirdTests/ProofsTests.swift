@@ -3,7 +3,7 @@ import XCTest
 @testable import RelayBird
 
 /// The vectors in docs/PROTOCOL.md, asserted here and in
-/// android/app/src/test/kotlin/dev/haxzie/relaybird/ProofsTest.kt. This is the test that
+/// android/app/src/test/kotlin/com/haxzie/relaybird/ProofsTest.kt. This is the test that
 /// catches silent interop drift between the two implementations.
 final class ProofsTests: XCTestCase {
     private let secret = Data((0x00 ..< 0x20).map(UInt8.init))

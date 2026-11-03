@@ -15,7 +15,7 @@ struct DiscoveredPhone: Equatable {
 /// real error rather than ignored.
 final class Discovery {
     private var browser: NWBrowser?
-    private let queue = DispatchQueue(label: "dev.haxzie.relaybird.discovery")
+    private let queue = DispatchQueue(label: "com.haxzie.relaybird.discovery")
 
     var onResults: (([DiscoveredPhone]) -> Void)?
     var onPermissionProblem: ((String) -> Void)?
