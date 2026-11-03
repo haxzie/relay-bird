@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import { Mark } from './Mark'
 import { AUTHOR_URL } from '@/lib/site'
 
@@ -6,6 +8,16 @@ export function SiteFooter() {
     <>
       <footer className="mt-24 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-edge py-8 text-xs text-muted">
         <span>Open source, and only ever on your Wi-Fi.</span>
+        {/* Grouped so the two never split across a wrap — at narrow widths the footer breaks
+            into two lines, and a lone "Terms" under the tagline reads like a heading. */}
+        <span className="flex items-center gap-x-6">
+          <Link className="transition hover:text-white" href="/privacy">
+            Privacy
+          </Link>
+          <Link className="transition hover:text-white" href="/terms">
+            Terms
+          </Link>
+        </span>
         <a
           className="ml-auto transition hover:text-white"
           href={AUTHOR_URL}
