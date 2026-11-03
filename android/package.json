@@ -8,7 +8,7 @@
     "test": "./gradlew :app:testDebugUnitTest",
     "device-test": "./gradlew :app:connectedDebugAndroidTest",
     "install-device": "./gradlew :app:installDebug",
-    "release": "./gradlew :app:assembleRelease && mkdir -p ../dist && cp app/build/outputs/apk/release/app-release.apk ../dist/RelayBird.apk",
+    "release": "./gradlew :app:assembleRelease :app:bundleRelease && mkdir -p ../dist && cp app/build/outputs/apk/release/app-release.apk ../dist/RelayBird.apk && cp app/build/outputs/bundle/release/app-release.aab ../dist/RelayBird.aab",
     "logs": "$ANDROID_HOME/platform-tools/adb logcat -s BridgeServer:V BridgeService:V ServerIdentity:V SmsWatcher:V SmsReceiver:V NsdAdvertiser:V",
     "clean": "./gradlew clean"
   }

@@ -86,19 +86,22 @@ jobs:
           chmod 600 android/release.jks
           echo "signed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Build the release APK
+      # Two artefacts from one signing pass: the APK people sideload, and the bundle Google
+      # Play requires — Play has not accepted an APK for a new app since 2021. They are built
+      # together so the upload can never be a different build from the download.
+      - name: Build the release APK and bundle
         working-directory: android
         env:
           ANDROID_KEYSTORE_FILE: release.jks
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew :app:assembleRelease
+        run: ./gradlew :app:assembleRelease :app:bundleRelease
 
       # The platform goes in the filename. A bare "RelayBird-1.1.0.zip" sitting next to an
       # .apk reads like source rather than the Mac app, and nobody installs a file they
       # cannot identify.
-      - name: Name the APK
+      - name: Name the APK and bundle
         run: |
           set -euo pipefail
           suffix=""
@@ -106,6 +109,8 @@ jobs:
           mkdir -p dist
           cp android/app/build/outputs/apk/release/app-release.apk \
              "dist/RelayBird-${{ steps.version.outputs.version }}-android$suffix.apk"
+          cp android/app/build/outputs/bundle/release/app-release.aab \
+             "dist/RelayBird-${{ steps.version.outputs.version }}-android$suffix.aab"
 
       - name: Remove the keystore
         if: always()
@@ -115,6 +120,15 @@ jobs:
         with:
           name: android-apk
           path: dist/*.apk
+          if-no-files-found: error
+
+      # Kept out of the GitHub release deliberately: a bundle is not installable, so sitting
+      # next to the APK it is only a thing to download by mistake. It lives here instead, for
+      # whoever is uploading to Play Console.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: dist/*.aab
           if-no-files-found: error
 
   macos:
