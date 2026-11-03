@@ -30,6 +30,27 @@ alone leaves the tag sitting there with no build against it.
 Nothing is published to npm; the packages are private and exist to give changesets something
 to version.
 
+## Google Play
+
+Play takes the `.aab`, not the `.apk`. Both come out of the same signing pass in the Release
+workflow, so the upload can never be a different build from the download, but only the APK is
+attached to the GitHub release — a bundle is not installable, and next to the APK it is just a
+thing to download by mistake. The bundle is the `android-aab` artefact on the release run.
+
+Upload that to Play Console, then add the new `versionCode` to the **APK Exceptions** field on
+the SMS permissions declaration. The exception is granted per version code, so a release that
+is not listed there is a release the exception does not cover.
+
+### The app signing key
+
+Play re-signs every install with an *app signing key*, and which key that is gets decided once,
+when the app is created. Choose **use an existing key** and upload `relaybird.jks` — the same
+key the GitHub APKs are signed with.
+
+Letting Play generate its own key instead would mean the Play build and the sideloaded APK have
+different signatures, so neither can upgrade the other and anyone moving between the two has to
+uninstall first. Changing this afterwards is a support request, not a setting.
+
 ## Secrets
 
 The build degrades rather than fails when these are missing, so a fork still produces working
