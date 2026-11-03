@@ -1,7 +1,7 @@
 # RelayBird wire protocol — v2
 
 Single source of truth for both apps. Any change here needs a matching change in
-`android/app/src/main/kotlin/dev/haxzie/relaybird/net/` and `macos/RelayBird/Net/`.
+`android/app/src/main/kotlin/com/haxzie/relaybird/net/` and `macos/RelayBird/Net/`.
 
 ## Roles
 

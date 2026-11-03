@@ -6,7 +6,7 @@ import Security
 /// `WhenUnlockedThisDeviceOnly`: the device key grants read access to the phone's entire SMS
 /// database, so it must not sync to iCloud or ride along in a backup.
 enum Keychain {
-    private static let service = "dev.haxzie.relaybird"
+    private static let service = "com.haxzie.relaybird"
     private static let account = "paired-phone"
 
     static func load() -> PairedPhone? {

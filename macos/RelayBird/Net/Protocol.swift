@@ -1,7 +1,7 @@
 import Foundation
 
 /// Wire protocol v1. Mirrored by hand in
-/// android/app/src/main/kotlin/dev/haxzie/relaybird/net/Protocol.kt — see docs/PROTOCOL.md,
+/// android/app/src/main/kotlin/com/haxzie/relaybird/net/Protocol.kt — see docs/PROTOCOL.md,
 /// which is the source of truth for both.
 enum Protocol {
     static let version = 2

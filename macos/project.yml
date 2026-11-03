@@ -1,6 +1,6 @@
 name: RelayBird
 options:
-  bundleIdPrefix: dev.haxzie
+  bundleIdPrefix: com.haxzie
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
@@ -72,7 +72,7 @@ targets:
           - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.haxzie.relaybird
+        PRODUCT_BUNDLE_IDENTIFIER: com.haxzie.relaybird
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
         COMBINE_HIDPI_IMAGES: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -87,7 +87,7 @@ targets:
       - target: RelayBird
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.haxzie.relaybird.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.haxzie.relaybird.tests
         GENERATE_INFOPLIST_FILE: YES
 
 schemes:

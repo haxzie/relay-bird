@@ -28,7 +28,7 @@ final class BridgeConnection {
     }
 
     private let connection: NWConnection
-    private let queue = DispatchQueue(label: "dev.haxzie.relaybird.connection")
+    private let queue = DispatchQueue(label: "com.haxzie.relaybird.connection")
     private let pinState = PinState()
     private var buffer = FrameBuffer()
     private var finished = false

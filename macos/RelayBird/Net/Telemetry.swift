@@ -19,7 +19,7 @@ final class Telemetry {
     static let shared = Telemetry()
 
     private let endpoint = URL(string: "https://relaybird.haxzie.com/api/events")!
-    private let log = Logger(subsystem: "dev.haxzie.relaybird", category: "telemetry")
+    private let log = Logger(subsystem: "com.haxzie.relaybird", category: "telemetry")
     private let session: URLSession
 
     private init() {

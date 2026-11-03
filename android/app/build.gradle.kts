@@ -30,11 +30,11 @@ val appVersion = Properties().apply {
 }
 
 android {
-    namespace = "dev.haxzie.relaybird"
+    namespace = "com.haxzie.relaybird"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "dev.haxzie.relaybird"
+        applicationId = "com.haxzie.relaybird"
         minSdk = 26
         targetSdk = 36
         versionCode = appVersion.getProperty("versionCode")?.toInt() ?: 1
